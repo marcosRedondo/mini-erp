@@ -1,13 +1,14 @@
 name: Build Windows Executable
 
 on:
-  push:branches: [ "main", "master" ] # Se ejecuta al subir a estas ramas
+  push:
+    branches: [ "main", "master" ]
   pull_request:
     branches: [ "main", "master" ]
 
 jobs:
   build:
-    runs-on: windows-latest # Usamos un servidor con Windows
+    runs-on: windows-latest
 
     steps:
       - name: Checkout code
@@ -17,14 +18,11 @@ jobs:
         uses: actions/setup-java@v4
         with:
           java-version: '21'
-          distribution: 'temurin' # Usamos la misma que descargaste
+          distribution: 'temurin'
           cache: 'gradle'
 
-      - name: Grant execute permission for gradlew
-        run: git update-index --chmod=+x gradlew
-
       - name: Build with Gradle
-        run: ./gradlew :composeApp:packageExe # El comando que ya conoces
+        run: ./gradlew :composeApp:packageExe
 
       - name: Upload Executable
         uses: actions/upload-artifact@v4
