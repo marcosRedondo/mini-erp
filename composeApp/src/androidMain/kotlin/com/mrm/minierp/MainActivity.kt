@@ -1,4 +1,4 @@
-package com.example.minierp
+package com.mrm.minierp
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity

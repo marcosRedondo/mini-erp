@@ -1,4 +1,4 @@
-package com.example.minierp
+package com.mrm.minierp
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
