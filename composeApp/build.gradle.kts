@@ -6,7 +6,6 @@ plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
-    alias(libs.plugins.composeHotReload)
     alias(libs.plugins.kotlinSerialization)
 }
 
@@ -17,7 +16,14 @@ kotlin {
         }
     }
     
-    jvm()
+    jvm {
+        mainRun {
+            mainClass.set("com.mrm.minierp.MainKt")
+        }
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_11)
+        }
+    }
     
     sourceSets {
         androidMain.dependencies {
@@ -36,6 +42,9 @@ kotlin {
             implementation(libs.androidx.lifecycle.runtimeCompose)
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.ktor.client.core)
+            implementation(libs.navigation.compose)
+            @Suppress("DEPRECATION")
+            implementation(compose.materialIconsExtended)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -49,11 +58,11 @@ kotlin {
 }
 
 android {
-    namespace = "com.example.minierp"
+    namespace = "com.mrm.minierp"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "com.example.minierp"
+        applicationId = "com.mrm.minierp"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
@@ -81,7 +90,7 @@ dependencies {
 
 compose.desktop {
     application {
-        mainClass = "com.example.minierp.MainKt"
+        mainClass = "com.mrm.minierp.MainKt"
 
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)

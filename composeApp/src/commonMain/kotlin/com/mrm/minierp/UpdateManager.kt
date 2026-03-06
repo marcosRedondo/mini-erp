@@ -1,4 +1,4 @@
-package com.example.minierp
+package com.mrm.minierp
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
