@@ -1,0 +1,23 @@
+CREATE TABLE ClientEntity (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    taxId TEXT,
+    address TEXT,
+    phone TEXT,
+    email TEXT,
+    notes TEXT,
+    is_vip INTEGER DEFAULT 0
+);
+
+insertClient:
+INSERT INTO ClientEntity(name, taxId, address, phone, email, notes, is_vip)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+selectAllClients:
+SELECT * FROM ClientEntity;
+
+selectClientById:
+SELECT * FROM ClientEntity WHERE id = ?;
+
+deleteClient:
+DELETE FROM ClientEntity WHERE id = ?;

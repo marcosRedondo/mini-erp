@@ -14,7 +14,7 @@ data class GitHubRelease(
 )
 
 object UpdateManager {
-    private val client = HttpClient()
+    private val client by lazy { HttpClient() }
     private val json = Json { ignoreUnknownKeys = true }
     
     const val APP_VERSION = "1.0.0"
@@ -23,10 +23,19 @@ object UpdateManager {
 
     suspend fun getLatestVersion(): String? = withContext(Dispatchers.Default) {
         try {
+            println("Checking for updates at $REPO_URL")
             val response: HttpResponse = client.get(REPO_URL)
-            val release = json.decodeFromString<GitHubRelease>(response.bodyAsText())
-            release.tag_name.removePrefix("v")
+            if (response.status.value in 200..299) {
+                val body = response.bodyAsText()
+                val release = json.decodeFromString<GitHubRelease>(body)
+                release.tag_name.removePrefix("v")
+            } else {
+                println("Update check failed with status: ${response.status}")
+                null
+            }
         } catch (e: Exception) {
+            println("Error checking for updates: ${e.message}")
+            e.printStackTrace()
             null
         }
     }

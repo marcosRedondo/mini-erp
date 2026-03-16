@@ -14,3 +14,15 @@ actual fun openUrl(url: String) {
         Desktop.getDesktop().browse(URI(url))
     }
 }
+
+actual fun pickDirectory(onDirectoryPicked: (String) -> Unit) {
+    val chooser = javax.swing.JFileChooser().apply {
+        fileSelectionMode = javax.swing.JFileChooser.DIRECTORIES_ONLY
+        dialogTitle = "Seleccionar carpeta de base de datos"
+        approveButtonText = "Seleccionar"
+    }
+    val result = chooser.showOpenDialog(null)
+    if (result == javax.swing.JFileChooser.APPROVE_OPTION) {
+        onDirectoryPicked(chooser.selectedFile.absolutePath)
+    }
+}
