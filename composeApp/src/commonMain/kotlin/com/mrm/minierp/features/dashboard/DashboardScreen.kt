@@ -15,7 +15,7 @@ import androidx.compose.ui.unit.dp
 import com.mrm.minierp.UpdateManager
 
 @Composable
-fun DashboardScreen() {
+fun DashboardScreen(onNavigateToClients: () -> Unit, onNavigateToSettings: () -> Unit) {
     Scaffold(
         topBar = {
             @OptIn(ExperimentalMaterial3Api::class)
@@ -45,15 +45,15 @@ fun DashboardScreen() {
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     modifier = Modifier.widthIn(max = 800.dp).weight(1f)
                 ) {
-                    item { DashboardButton("Clientes", Icons.Default.Person, false) }
-                    item { DashboardButton("Facturas", Icons.Default.Receipt, false) }
-                    item { DashboardButton("Presupuestos", Icons.Default.Description, false) }
-                    item { DashboardButton("Configuración", Icons.Default.Settings, false) }
+                    item { DashboardButton("Clientes", Icons.Default.Person, true, onNavigateToClients) }
+                    item { DashboardButton("Facturas", Icons.Default.Receipt, false, {}) }
+                    item { DashboardButton("Presupuestos", Icons.Default.Description, false, {}) }
+                    item { DashboardButton("Configuración", Icons.Default.Settings, true, onNavigateToSettings) }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                // Ãrea para futuras estadÃ­sticas
+                // Área para futuras estadísticas
 
             }
 
@@ -71,9 +71,9 @@ fun DashboardScreen() {
 }
 
 @Composable
-fun DashboardButton(text: String, icon: ImageVector, enabled: Boolean) {
+fun DashboardButton(text: String, icon: ImageVector, enabled: Boolean, onClick: () -> Unit) {
     ElevatedButton(
-        onClick = { /* Navegación futura */ },
+        onClick = onClick,
         enabled = enabled,
         modifier = Modifier.height(120.dp),
         shape = MaterialTheme.shapes.medium,

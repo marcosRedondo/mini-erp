@@ -4,6 +4,11 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 
+object AndroidContextProvider {
+    var context: android.content.Context? = null
+    var onPickDirectory: ((onDirectoryPicked: (String) -> Unit) -> Unit)? = null
+}
+
 class AndroidPlatform : Platform {
     override val name: String = "Android ${Build.VERSION.SDK_INT}"
 }
@@ -11,7 +16,12 @@ class AndroidPlatform : Platform {
 actual fun getPlatform(): Platform = AndroidPlatform()
 
 actual fun openUrl(url: String) {
-    // Note: This requires a context. In a real app, you'd probably use a CompositionLocal or pass it down.
-    // For now, we'll leave it as a placeholder or handle it via a shared state if needed.
-    // However, since we are troubleshooting a JVM issue, let's focus on JVM.
+    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+    AndroidContextProvider.context?.startActivity(intent)
+}
+
+actual fun pickDirectory(onDirectoryPicked: (String) -> Unit) {
+    AndroidContextProvider.onPickDirectory?.invoke(onDirectoryPicked)
 }
