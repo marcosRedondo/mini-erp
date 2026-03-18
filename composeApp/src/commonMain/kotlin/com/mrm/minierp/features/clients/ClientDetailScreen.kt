@@ -21,7 +21,8 @@ import com.mrm.minierp.models.Client
 fun ClientDetailScreen(
     client: Client? = null,
     onSave: (Client) -> Unit,
-    onCancel: () -> Unit
+    onCancel: () -> Unit,
+    onDelete: (Client) -> Unit = {}
 ) {
     var name by remember { mutableStateOf(client?.name ?: "") }
     var taxId by remember { mutableStateOf(client?.taxId ?: "") }
@@ -30,8 +31,10 @@ fun ClientDetailScreen(
     var email by remember { mutableStateOf(client?.email ?: "") }
     var notes by remember { mutableStateOf(client?.notes ?: "") }
     var isVip by remember { mutableStateOf(client?.isVip ?: false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
-    val isFormValid = name.isNotBlank()
+    val isEmailValid = email.isEmpty() || Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}\$").matches(email)
+    val isFormValid = name.isNotBlank() && isEmailValid
 
     Scaffold(
         topBar = {
@@ -43,6 +46,11 @@ fun ClientDetailScreen(
                     }
                 },
                 actions = {
+                    if (client != null) {
+                        IconButton(onClick = { showDeleteDialog = true }) {
+                            Icon(Icons.Default.Delete, contentDescription = "Borrar Cliente", tint = MaterialTheme.colorScheme.onPrimary)
+                        }
+                    }
                     TextButton(
                         onClick = {
                             if (isFormValid) {
@@ -104,7 +112,9 @@ fun ClientDetailScreen(
                     label = "Email",
                     icon = Icons.Default.Email,
                     modifier = Modifier.weight(1f),
-                    keyboardType = KeyboardType.Email
+                    keyboardType = KeyboardType.Email,
+                    isError = !isEmailValid,
+                    errorMessage = if (!isEmailValid) "Email inválido" else null
                 )
             }
 
@@ -146,6 +156,30 @@ fun ClientDetailScreen(
             
             Spacer(modifier = Modifier.height(32.dp))
         }
+
+        if (showDeleteDialog && client != null) {
+            AlertDialog(
+                onDismissRequest = { showDeleteDialog = false },
+                title = { Text("Eliminar Cliente") },
+                text = { Text("¿Estás seguro de que quieres eliminar a ${client.name}? Esta acción no se puede deshacer.") },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showDeleteDialog = false
+                            onDelete(client)
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Text("Eliminar")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteDialog = false }) {
+                        Text("Cancelar")
+                    }
+                }
+            )
+        }
     }
 }
 
@@ -157,16 +191,29 @@ fun ClientTextField(
     icon: ImageVector,
     modifier: Modifier = Modifier,
     placeholder: String? = null,
-    keyboardType: KeyboardType = KeyboardType.Text
+    keyboardType: KeyboardType = KeyboardType.Text,
+    isError: Boolean = false,
+    errorMessage: String? = null
 ) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text(label) },
-        placeholder = placeholder?.let { { Text(it) } },
-        leadingIcon = { Icon(icon, contentDescription = null) },
-        modifier = modifier.fillMaxWidth(),
-        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-        singleLine = true
-    )
+    Column(modifier = modifier) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            label = { Text(label) },
+            placeholder = placeholder?.let { { Text(it) } },
+            leadingIcon = { Icon(icon, contentDescription = null) },
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+            singleLine = true,
+            isError = isError
+        )
+        if (isError && errorMessage != null) {
+            Text(
+                text = errorMessage,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+            )
+        }
+    }
 }

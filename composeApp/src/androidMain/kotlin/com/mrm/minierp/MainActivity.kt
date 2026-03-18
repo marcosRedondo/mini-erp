@@ -9,7 +9,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 
 import androidx.activity.result.contract.ActivityResultContracts
-import com.mrm.minierp.database.AndroidContextProvider
 
 class MainActivity : ComponentActivity() {
     private var directoryCallback: ((String) -> Unit)? = null

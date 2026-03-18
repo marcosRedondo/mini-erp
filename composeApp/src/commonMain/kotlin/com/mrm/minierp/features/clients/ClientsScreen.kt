@@ -19,10 +19,12 @@ import com.mrm.minierp.models.Client
 @Composable
 fun ClientsScreen(
     repository: ClientRepository,
+    forceRefresh: Int = 0,
     onBack: () -> Unit,
-    onAddClient: () -> Unit
+    onAddClient: () -> Unit,
+    onClientClick: (Int) -> Unit
 ) {
-    val clients by remember { mutableStateOf(repository.getAllClients()) }
+    val clients = remember(forceRefresh, repository) { repository.getAllClients() }
 
     Scaffold(
         topBar = {
@@ -79,6 +81,7 @@ fun ClientsScreen(
                 ) {
                     items(clients) { client ->
                         Card(
+                            onClick = { onClientClick(client.id) },
                             modifier = Modifier.fillMaxWidth(),
                             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                         ) {
@@ -100,7 +103,7 @@ fun ClientsScreen(
                                     }
                                 },
                                 trailingContent = {
-                                    IconButton(onClick = { /* TODO: Editar */ }) {
+                                    IconButton(onClick = { onClientClick(client.id) }) {
                                         Icon(Icons.Default.ChevronRight, contentDescription = "Ver detalles")
                                     }
                                 }

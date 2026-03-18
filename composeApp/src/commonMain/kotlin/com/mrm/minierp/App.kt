@@ -20,6 +20,7 @@ fun App() {
         val navController = rememberNavController()
         var showUpdateDialog by remember { mutableStateOf(false) }
         var latestVersion by remember { mutableStateOf<String?>(null) }
+        var forceRefresh by remember { mutableStateOf(0) }
         
         // Estado para la ruta de almacenamiento (para reactividad)
         var currentStoragePath by remember { mutableStateOf(SettingsManager.storagePath) }
@@ -63,18 +64,51 @@ fun App() {
             composable("clients") {
                 ClientsScreen(
                     repository = repository,
+                    forceRefresh = forceRefresh,
                     onBack = { navController.popBackStack() },
-                    onAddClient = { navController.navigate("clients/new") }
+                    onAddClient = { navController.navigate("clients/new") },
+                    onClientClick = { id -> navController.navigate("clients/$id") }
                 )
             }
-            composable("clients/new") {
-                ClientDetailScreen(
-                    onSave = { client -> 
-                        repository.saveClient(client)
-                        navController.popBackStack() 
-                    },
-                    onCancel = { navController.popBackStack() }
-                )
+            composable("clients/{id}") { backStackEntry ->
+                val idStr = backStackEntry.arguments?.getString("id")
+                if (idStr == "new") {
+                    ClientDetailScreen(
+                        onSave = { client -> 
+                            repository.saveClient(client)
+                            forceRefresh++
+                            navController.popBackStack() 
+                        },
+                        onCancel = { navController.popBackStack() }
+                    )
+                } else {
+                    val id = idStr?.toIntOrNull()
+                    if (id != null) {
+                        val client = remember(id) { repository.getClientById(id) }
+                        if (client != null) {
+                            ClientDetailScreen(
+                                client = client,
+                                onSave = { updatedClient -> 
+                                    repository.updateClient(updatedClient)
+                                    forceRefresh++
+                                    navController.popBackStack() 
+                                },
+                                onCancel = { navController.popBackStack() },
+                                onDelete = { clientToDelete ->
+                                    repository.deleteClient(clientToDelete.id)
+                                    forceRefresh++
+                                    navController.popBackStack()
+                                }
+                            )
+                        } else {
+                            // Si por algún motivo no se encontró el cliente, no hacer un popBackStack
+                            // directamente en el bloque de composición, se usa un LaunchedEffect.
+                            LaunchedEffect(Unit) {
+                                navController.popBackStack()
+                            }
+                        }
+                    }
+                }
             }
         }
 

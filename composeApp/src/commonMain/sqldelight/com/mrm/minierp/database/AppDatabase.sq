@@ -21,3 +21,8 @@ SELECT * FROM ClientEntity WHERE id = ?;
 
 deleteClient:
 DELETE FROM ClientEntity WHERE id = ?;
+
+updateClient:
+UPDATE ClientEntity
+SET name = ?, taxId = ?, address = ?, phone = ?, email = ?, notes = ?, is_vip = ?
+WHERE id = ?;
