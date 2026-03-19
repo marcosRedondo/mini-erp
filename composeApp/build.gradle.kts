@@ -104,6 +104,7 @@ compose.desktop {
         mainClass = "com.mrm.minierp.MainKt"
 
         nativeDistributions {
+            modules("java.sql")
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)
             packageName = "MiniErp"
             packageVersion = libs.versions.app.version.get()

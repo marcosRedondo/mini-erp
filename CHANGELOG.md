@@ -5,6 +5,12 @@ Todas las versiones notables de este proyecto se documentarán en este archivo.
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 y este proyecto se adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] - 2026-03-19
+
+### Corregido
+- Solucionado el problema de que la aplicación no se iniciara en Windows.
+
+
 ## [1.0.1] - 2026-03-18
 
 ### Añadido
