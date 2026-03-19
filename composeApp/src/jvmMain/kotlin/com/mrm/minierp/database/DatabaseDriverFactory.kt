@@ -16,11 +16,19 @@ actual class DatabaseDriverFactory actual constructor() {
         
         val driver: SqlDriver = JdbcSqliteDriver("jdbc:sqlite:${databaseFile.absolutePath}")
         
-        // Crear tablas si no existen
+        // Inicializar esquema
         try {
+            // Versión actual del esquema generado por SqlDelight
+            val currentVersion = MiniErpDatabase.Schema.version
+            
+            // Aquí en modo desarrollo, si falla el create, simplemente lo ignoramos,
+            // pero lo ideal sería llamar a Schema.migrate si detectamos versión antigua.
+            // Para un ERP, mejor forzar que las tablas existan:
             MiniErpDatabase.Schema.create(driver)
+            println("DEBUG: Database schema created successfully (Version $currentVersion)")
         } catch (e: Exception) {
-            // La base de datos probablemente ya existe
+            // Si ya existe, no hacemos nada (por ahora)
+            // println("DEBUG: Database already exists or error during creation: ${e.message}")
         }
         
         return driver

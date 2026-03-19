@@ -8,6 +8,8 @@ import io.ktor.client.statement.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+import com.mrm.minierp.generated.BuildInfo
+
 @Serializable
 data class GitHubRelease(
     val tag_name: String
@@ -17,7 +19,7 @@ object UpdateManager {
     private val client by lazy { HttpClient() }
     private val json = Json { ignoreUnknownKeys = true }
     
-    const val APP_VERSION = "1.0.0"
+    val APP_VERSION = BuildInfo.APP_VERSION
     private const val REPO_URL = "https://api.github.com/repos/marcosRedondo/mini-erp/releases/latest"
     const val DOWNLOAD_URL = "https://github.com/marcosRedondo/mini-erp/releases/latest"
 

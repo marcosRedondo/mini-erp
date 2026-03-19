@@ -13,6 +13,9 @@ insertClient:
 INSERT INTO ClientEntity(name, taxId, address, phone, email, notes, is_vip)
 VALUES (?, ?, ?, ?, ?, ?, ?);
 
+selectLastInsertedClientId:
+SELECT MAX(id) AS lastId FROM ClientEntity;
+
 selectAllClients:
 SELECT * FROM ClientEntity;
 
@@ -26,3 +29,41 @@ updateClient:
 UPDATE ClientEntity
 SET name = ?, taxId = ?, address = ?, phone = ?, email = ?, notes = ?, is_vip = ?
 WHERE id = ?;
+
+CREATE TABLE QuoteEntity (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    clientId INTEGER NOT NULL,
+    number TEXT NOT NULL,
+    date TEXT NOT NULL,
+    totalAmount REAL DEFAULT 0.0,
+    FOREIGN KEY(clientId) REFERENCES ClientEntity(id)
+);
+
+insertQuote:
+INSERT INTO QuoteEntity(clientId, number, date, totalAmount)
+VALUES (?, ?, ?, ?);
+
+selectAllQuotes:
+SELECT * FROM QuoteEntity;
+
+selectQuotesByClientId:
+SELECT * FROM QuoteEntity WHERE clientId = ?;
+
+countQuotesForClientInYear:
+SELECT COUNT(*) FROM QuoteEntity 
+WHERE clientId = ? AND date LIKE ?;
+
+selectRecentQuotesWithClient:
+SELECT Q.*, C.name AS clientName, C.taxId AS clientTaxId
+FROM QuoteEntity Q
+JOIN ClientEntity C ON Q.clientId = C.id
+ORDER BY Q.date DESC, Q.id DESC
+LIMIT :limit;
+
+updateQuote:
+UPDATE QuoteEntity
+SET clientId = ?, number = ?, date = ?, totalAmount = ?
+WHERE id = ?;
+
+deleteQuote:
+DELETE FROM QuoteEntity WHERE id = ?;
