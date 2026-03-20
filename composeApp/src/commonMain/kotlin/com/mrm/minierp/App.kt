@@ -64,6 +64,7 @@ fun App() {
             composable("quotes") {
                 QuotesScreen(
                     quoteRepository = quoteRepository,
+                    clientRepository = clientRepository,
                     onBack = { navController.popBackStack() },
                     onAddQuote = { navController.navigate("quotes/new") },
                     onEditQuote = { quoteId -> navController.navigate("quotes/$quoteId") }
