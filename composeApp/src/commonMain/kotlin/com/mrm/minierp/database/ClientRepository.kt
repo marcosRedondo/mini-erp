@@ -1,8 +1,17 @@
 package com.mrm.minierp.database
 
+import androidx.compose.runtime.*
 import com.mrm.minierp.models.Client
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 
 class ClientRepository(private val database: MiniErpDatabase) {
+    var lastCreatedClientId by mutableStateOf<Int?>(null)
+        private set
+
+    private val _clientCreated = MutableSharedFlow<Int>(replay = 1)
+    val clientCreated = _clientCreated.asSharedFlow()
+
     private val queries = database.appDatabaseQueries
 
     fun getAllClients(): List<Client> {
@@ -20,7 +29,7 @@ class ClientRepository(private val database: MiniErpDatabase) {
         }
     }
 
-    fun saveClient(client: Client) {
+    suspend fun saveClient(client: Client): Int {
         queries.insertClient(
             name = client.name,
             taxId = client.taxId,
@@ -30,6 +39,14 @@ class ClientRepository(private val database: MiniErpDatabase) {
             notes = client.notes,
             is_vip = if (client.isVip) 1L else 0L
         )
+        val newId = queries.selectLastInsertedClientId().executeAsOne().lastId?.toInt() ?: 0
+        lastCreatedClientId = if (newId > 0) newId else null
+        _clientCreated.emit(newId)
+        return newId
+    }
+
+    fun clearLastCreatedClientId() {
+        lastCreatedClientId = null
     }
 
     fun deleteClient(id: Int) {

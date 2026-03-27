@@ -1,0 +1,1 @@
+ALTER TABLE QuoteEntity ADD COLUMN notes TEXT;

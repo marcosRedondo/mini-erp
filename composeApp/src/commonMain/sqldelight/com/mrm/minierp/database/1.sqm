@@ -1,0 +1,12 @@
+-- Migration from version 1 to 2
+CREATE TABLE QuoteLineEntity (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    quoteId INTEGER NOT NULL,
+    quantity REAL NOT NULL,
+    concept TEXT NOT NULL,
+    detail TEXT,
+    sublines TEXT,
+    iva INTEGER NOT NULL DEFAULT 21,
+    unitPrice REAL NOT NULL,
+    FOREIGN KEY(quoteId) REFERENCES QuoteEntity(id) ON DELETE CASCADE
+);
