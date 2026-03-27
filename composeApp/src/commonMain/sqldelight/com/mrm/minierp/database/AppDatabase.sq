@@ -36,12 +36,14 @@ CREATE TABLE QuoteEntity (
     number TEXT NOT NULL,
     date TEXT NOT NULL,
     totalAmount REAL DEFAULT 0.0,
+    expirationDate TEXT,
+    notes TEXT,
     FOREIGN KEY(clientId) REFERENCES ClientEntity(id)
 );
 
 insertQuote:
-INSERT INTO QuoteEntity(clientId, number, date, totalAmount)
-VALUES (?, ?, ?, ?);
+INSERT INTO QuoteEntity(clientId, number, date, totalAmount, expirationDate, notes)
+VALUES (?, ?, ?, ?, ?, ?);
 
 selectLastInsertedQuoteId:
 SELECT MAX(id) FROM QuoteEntity;
@@ -128,7 +130,7 @@ DELETE FROM QuoteLineEntity WHERE quoteId = ?;
 
 updateQuote:
 UPDATE QuoteEntity
-SET clientId = ?, number = ?, date = ?, totalAmount = ?
+SET clientId = ?, number = ?, date = ?, totalAmount = ?, expirationDate = ?, notes = ?
 WHERE id = ?;
 
 deleteQuote:

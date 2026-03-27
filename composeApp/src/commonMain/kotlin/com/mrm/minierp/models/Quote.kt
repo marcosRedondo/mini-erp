@@ -7,7 +7,9 @@ data class Quote(
     val clientId: Int,
     val number: String,
     val date: LocalDate,
+    val expirationDate: LocalDate? = null,
     val totalAmount: Double = 0.0,
+    val notes: String = "",
     val lines: List<QuoteLine> = emptyList()
 )
 

@@ -26,7 +26,9 @@ class QuoteRepository(private val database: MiniErpDatabase) {
                 clientId = entity.clientId.toInt(),
                 number = entity.number,
                 date = entity.date.toLocalDate(),
+                expirationDate = entity.expirationDate?.toLocalDate(),
                 totalAmount = entity.totalAmount ?: 0.0,
+                notes = entity.notes ?: "",
                 lines = lines
             )
         }
@@ -39,7 +41,9 @@ class QuoteRepository(private val database: MiniErpDatabase) {
                 clientId = quote.clientId.toLong(),
                 number = quote.number,
                 date = quote.date.toString(),
-                totalAmount = quote.totalAmount
+                totalAmount = quote.totalAmount,
+                expirationDate = quote.expirationDate?.toString(),
+                notes = quote.notes
             )
             quoteId = queries.selectLastInsertedQuoteId().executeAsOne().MAX ?: 0L
         } else {
@@ -48,6 +52,8 @@ class QuoteRepository(private val database: MiniErpDatabase) {
                 number = quote.number,
                 date = quote.date.toString(),
                 totalAmount = quote.totalAmount,
+                expirationDate = quote.expirationDate?.toString(),
+                notes = quote.notes,
                 id = quote.id.toLong()
             )
             quoteId = quote.id.toLong()
@@ -75,19 +81,19 @@ class QuoteRepository(private val database: MiniErpDatabase) {
 
     fun getRecentQuotesWithClient(limit: Int = 10): List<QuoteWithClient> {
         return queries.selectRecentQuotesWithClient(limit.toLong()).executeAsList().map { row ->
-            mapToQuoteWithClient(row.id, row.clientId, row.number, row.date, row.totalAmount, row.clientName, row.clientTaxId)
+            mapToQuoteWithClient(row.id, row.clientId, row.number, row.date, row.expirationDate, row.notes, row.totalAmount, row.clientName, row.clientTaxId)
         }
     }
 
     fun getQuotesPaged(limit: Int, offset: Int): List<QuoteWithClient> {
         return queries.selectQuotesPaged(limit.toLong(), offset.toLong()).executeAsList().map { row ->
-            mapToQuoteWithClient(row.id, row.clientId, row.number, row.date, row.totalAmount, row.clientName, row.clientTaxId)
+            mapToQuoteWithClient(row.id, row.clientId, row.number, row.date, row.expirationDate, row.notes, row.totalAmount, row.clientName, row.clientTaxId)
         }
     }
 
     fun getQuotesFilteredPaged(clientIds: List<Int>, limit: Int, offset: Int): List<QuoteWithClient> {
         return queries.selectQuotesFilteredPaged(clientIds.map { it.toLong() }, limit.toLong(), offset.toLong()).executeAsList().map { row ->
-            mapToQuoteWithClient(row.id, row.clientId, row.number, row.date, row.totalAmount, row.clientName, row.clientTaxId)
+            mapToQuoteWithClient(row.id, row.clientId, row.number, row.date, row.expirationDate, row.notes, row.totalAmount, row.clientName, row.clientTaxId)
         }
     }
 
@@ -109,7 +115,7 @@ class QuoteRepository(private val database: MiniErpDatabase) {
             limit = limit.toLong(),
             offset = offset.toLong()
         ).executeAsList().map { row ->
-            mapToQuoteWithClient(row.id, row.clientId, row.number, row.date, row.totalAmount, row.clientName, row.clientTaxId)
+            mapToQuoteWithClient(row.id, row.clientId, row.number, row.date, row.expirationDate, row.notes, row.totalAmount, row.clientName, row.clientTaxId)
         }
     }
 
@@ -138,6 +144,8 @@ class QuoteRepository(private val database: MiniErpDatabase) {
         clientId: Long,
         number: String,
         dateString: String,
+        expirationDateString: String?,
+        notes: String?,
         totalAmount: Double?,
         clientName: String,
         clientTaxId: String?
@@ -159,7 +167,9 @@ class QuoteRepository(private val database: MiniErpDatabase) {
                 clientId = clientId.toInt(),
                 number = number,
                 date = dateString.toLocalDate(),
+                expirationDate = expirationDateString?.toLocalDate(),
                 totalAmount = totalAmount ?: 0.0,
+                notes = notes ?: "",
                 lines = lines
             ),
             clientName = clientName,
@@ -185,7 +195,9 @@ class QuoteRepository(private val database: MiniErpDatabase) {
             clientId = entity.clientId.toInt(),
             number = entity.number,
             date = entity.date.toLocalDate(),
+            expirationDate = entity.expirationDate?.toLocalDate(),
             totalAmount = entity.totalAmount ?: 0.0,
+            notes = entity.notes ?: "",
             lines = lines
         )
     }

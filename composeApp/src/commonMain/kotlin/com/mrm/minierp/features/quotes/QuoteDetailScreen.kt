@@ -56,24 +56,40 @@ fun QuoteDetailScreen(
     
     val today = remember { Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date }
     var quoteDate by remember { mutableStateOf(quote?.date?.toString() ?: today.toString()) }
+    var expirationDate by remember { mutableStateOf(quote?.expirationDate?.toString() ?: today.plus(DatePeriod(months = 1)).toString()) }
+    var notes by remember { mutableStateOf(quote?.notes ?: "") }
     var quoteNumber by remember { mutableStateOf(quote?.number ?: "") }
     
+    var nextKey by remember { mutableStateOf(0L) }
+    
     val quoteLines = remember { 
-        mutableStateListOf<QuoteLine>().apply {
+        mutableStateListOf<LineUIState>().apply {
             if (quote != null) {
-                addAll(quote.lines)
+                addAll(quote.lines.map { 
+                    LineUIState(
+                        key = nextKey++, 
+                        line = it, 
+                        quantityText = if (it.quantity == 0.0) "" else it.quantity.toDisplayString(), 
+                        unitPriceText = if (it.unitPrice == 0.0) "" else it.unitPrice.toDisplayString()
+                    ) 
+                })
             } else if (isEmpty()) {
                 // Empezar con una línea vacía si es nuevo
-                add(QuoteLine(quantity = 1.0, concept = "", unitPrice = 0.0))
+                add(LineUIState(
+                    key = nextKey++, 
+                    line = QuoteLine(quantity = 1.0, concept = "", unitPrice = 0.0), 
+                    quantityText = "1", 
+                    unitPriceText = ""
+                ))
             }
         }
     }
 
-    val totalAmount = quoteLines.sumOf { it.totalWithIva }
-    val subtotalAmount = quoteLines.sumOf { it.totalWithoutIva }
-    val ivaBreakdown = quoteLines.groupBy { it.iva }.mapValues { (_, lines) ->
-        val base = lines.sumOf { it.totalWithoutIva }
-        val quota = lines.sumOf { it.ivaAmount }
+    val totalAmount = quoteLines.sumOf { it.line.totalWithIva }
+    val subtotalAmount = quoteLines.sumOf { it.line.totalWithoutIva }
+    val ivaBreakdown = quoteLines.groupBy { it.line.iva }.mapValues { (_, states) ->
+        val base = states.sumOf { it.line.totalWithoutIva }
+        val quota = states.sumOf { it.line.ivaAmount }
         Pair(base, quota)
     }
     
@@ -147,8 +163,10 @@ fun QuoteDetailScreen(
                                         clientId = client.id,
                                         number = quoteNumber,
                                         date = quoteDate.toLocalDate(),
+                                        expirationDate = expirationDate.toLocalDate(),
                                         totalAmount = totalAmount,
-                                        lines = quoteLines.toList()
+                                        notes = notes,
+                                        lines = quoteLines.map { it.line }
                                     ))
                                 } catch (e: Exception) {
                                     // Manejar error de fecha
@@ -213,6 +231,18 @@ fun QuoteDetailScreen(
                     leadingIcon = { Icon(Icons.Default.CalendarToday, contentDescription = null) },
                     placeholder = { Text("YYYY-MM-DD") },
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Right) })
+                )
+
+                OutlinedTextField(
+                    value = expirationDate,
+                    onValueChange = { expirationDate = it },
+                    label = { Text("Vencimiento") },
+                    modifier = Modifier.weight(1f),
+                    leadingIcon = { Icon(Icons.Default.CalendarToday, contentDescription = null) },
+                    placeholder = { Text("YYYY-MM-DD") },
+                    singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
                 )
             }
@@ -242,22 +272,33 @@ fun QuoteDetailScreen(
                             .padding(end = 12.dp) // Espacio para el scrollbar
                             .padding(bottom = 60.dp)
                     ) {
-                        quoteLines.forEachIndexed { index, line ->
-                            QuoteLineRow(
-                                line = line,
-                                onLineChange = { updatedLine -> 
-                                    quoteLines[index] = updatedLine
-                                },
-                                onDelete = {
-                                    quoteLines.removeAt(index)
-                                }
-                            )
+                        quoteLines.forEachIndexed { index, state ->
+                            key(state.key) {
+                                QuoteLineRow(
+                                    line = state.line,
+                                    quantityText = state.quantityText,
+                                    unitPriceText = state.unitPriceText,
+                                    onLineChange = { updatedLine, newQuantityText, newUnitPriceText -> 
+                                        quoteLines[index] = LineUIState(state.key, updatedLine, newQuantityText, newUnitPriceText)
+                                    },
+                                    onDelete = {
+                                        quoteLines.removeAt(index)
+                                    }
+                                )
+                            }
                         }
                         
                         // Botón añadir línea principal
                         OutlinedButton(
                             onClick = { 
-                                quoteLines.add(QuoteLine(quantity = 1.0, concept = "", unitPrice = 0.0))
+                                quoteLines.add(
+                                    LineUIState(
+                                        key = nextKey++, 
+                                        line = QuoteLine(quantity = 1.0, concept = "", unitPrice = 0.0), 
+                                        quantityText = "1", 
+                                        unitPriceText = ""
+                                    )
+                                )
                             },
                             modifier = Modifier.padding(top = 16.dp, bottom = 16.dp).fillMaxWidth(),
                             shape = RoundedCornerShape(8.dp)
@@ -266,6 +307,16 @@ fun QuoteDetailScreen(
                             Spacer(Modifier.width(8.dp))
                             Text("Añadir línea principal")
                         }
+
+                        // Observaciones
+                        OutlinedTextField(
+                            value = notes,
+                            onValueChange = { notes = it },
+                            label = { Text("Observaciones") },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp, max = 200.dp).padding(bottom = 16.dp),
+                            placeholder = { Text("Añade cualquier observación o condición especial respecto al presupuesto...") },
+                            maxLines = 10
+                        )
                     }
                     
                     // Añadir el scrollbar visual
@@ -338,7 +389,9 @@ fun QuoteDetailScreen(
 @Composable
 fun QuoteLineRow(
     line: QuoteLine,
-    onLineChange: (QuoteLine) -> Unit,
+    quantityText: String,
+    unitPriceText: String,
+    onLineChange: (QuoteLine, String, String) -> Unit,
     onDelete: () -> Unit
 ) {
     var showIvaMenu by remember { mutableStateOf(false) }
@@ -364,7 +417,7 @@ fun QuoteLineRow(
             ) {
                 CompactTextField(
                     value = line.concept,
-                    onValueChange = { onLineChange(line.copy(concept = it)) },
+                    onValueChange = { onLineChange(line.copy(concept = it), quantityText, unitPriceText) },
                     modifier = Modifier.weight(1f),
                     fontSize = 13.sp,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
@@ -373,6 +426,55 @@ fun QuoteLineRow(
                 IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
                     Icon(Icons.Default.Close, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
                 }
+            }
+
+            // Sublíneas
+            if (line.sublines.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    line.sublines.forEachIndexed { sIndex, subline ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.SubdirectoryArrowRight, contentDescription = null,
+                                modifier = Modifier.size(14.dp).alpha(0.5f))
+                            Spacer(Modifier.width(4.dp))
+                            CompactTextField(
+                                value = subline,
+                                onValueChange = { newValue ->
+                                    val newSublines = line.sublines.toMutableList()
+                                    newSublines[sIndex] = newValue
+                                    onLineChange(line.copy(sublines = newSublines), quantityText, unitPriceText)
+                                },
+                                modifier = Modifier.weight(1f),
+                                fontSize = 12.sp
+                            )
+                            IconButton(onClick = {
+                                val newSublines = line.sublines.toMutableList()
+                                newSublines.removeAt(sIndex)
+                                onLineChange(line.copy(sublines = newSublines), quantityText, unitPriceText)
+                            }, modifier = Modifier.size(24.dp)) {
+                                Icon(Icons.Default.RemoveCircleOutline, contentDescription = "Eliminar sublínea",
+                                    modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f))
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Botón añadir sublínea
+            TextButton(
+                onClick = {
+                    val newSublines = line.sublines.toMutableList()
+                    newSublines.add("")
+                    onLineChange(line.copy(sublines = newSublines), quantityText, unitPriceText)
+                },
+                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                modifier = Modifier.height(28.dp)
+            ) {
+                Icon(Icons.Default.AddCircleOutline, contentDescription = null, modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Añadir detalle/sublínea", fontSize = 11.sp)
             }
 
             // Fila 2: Cant | IVA | Precio/u | Subtotal
@@ -385,8 +487,11 @@ fun QuoteLineRow(
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Cant.", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     CompactTextField(
-                        value = if (line.quantity == 0.0) "" else line.quantity.toDisplayString(),
-                        onValueChange = { onLineChange(line.copy(quantity = it.replace(",", ".").toDoubleOrNull() ?: 0.0)) },
+                        value = quantityText,
+                        onValueChange = { 
+                            val parsed = it.replace(",", ".").toDoubleOrNull() ?: 0.0
+                            onLineChange(line.copy(quantity = parsed), it, unitPriceText) 
+                        },
                         modifier = Modifier.fillMaxWidth().height(36.dp),
                         textAlign = TextAlign.Center,
                         fontSize = 12.sp,
@@ -399,8 +504,11 @@ fun QuoteLineRow(
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Precio/u", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     CompactTextField(
-                        value = if (line.unitPrice == 0.0) "" else line.unitPrice.toDisplayString(),
-                        onValueChange = { onLineChange(line.copy(unitPrice = it.replace(",", ".").toDoubleOrNull() ?: 0.0)) },
+                        value = unitPriceText,
+                        onValueChange = { 
+                            val parsed = it.replace(",", ".").toDoubleOrNull() ?: 0.0
+                            onLineChange(line.copy(unitPrice = parsed), quantityText, it) 
+                        },
                         modifier = Modifier.fillMaxWidth().height(36.dp),
                         textAlign = TextAlign.End,
                         fontSize = 12.sp,
@@ -430,7 +538,7 @@ fun QuoteLineRow(
                             ivas.forEach { iva ->
                                 DropdownMenuItem(
                                     text = { Text("$iva%") },
-                                    onClick = { onLineChange(line.copy(iva = iva)); showIvaMenu = false }
+                                    onClick = { onLineChange(line.copy(iva = iva), quantityText, unitPriceText); showIvaMenu = false }
                                 )
                             }
                         }
@@ -452,55 +560,6 @@ fun QuoteLineRow(
                     )
                 }
             }
-
-            // Sublíneas
-            if (line.sublines.isNotEmpty()) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    line.sublines.forEachIndexed { sIndex, subline ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Default.SubdirectoryArrowRight, contentDescription = null,
-                                modifier = Modifier.size(14.dp).alpha(0.5f))
-                            Spacer(Modifier.width(4.dp))
-                            CompactTextField(
-                                value = subline,
-                                onValueChange = { newValue ->
-                                    val newSublines = line.sublines.toMutableList()
-                                    newSublines[sIndex] = newValue
-                                    onLineChange(line.copy(sublines = newSublines))
-                                },
-                                modifier = Modifier.weight(1f),
-                                fontSize = 12.sp
-                            )
-                            IconButton(onClick = {
-                                val newSublines = line.sublines.toMutableList()
-                                newSublines.removeAt(sIndex)
-                                onLineChange(line.copy(sublines = newSublines))
-                            }, modifier = Modifier.size(24.dp)) {
-                                Icon(Icons.Default.RemoveCircleOutline, contentDescription = "Eliminar sublínea",
-                                    modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f))
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Botón añadir sublínea
-            TextButton(
-                onClick = {
-                    val newSublines = line.sublines.toMutableList()
-                    newSublines.add("")
-                    onLineChange(line.copy(sublines = newSublines))
-                },
-                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
-                modifier = Modifier.height(28.dp)
-            ) {
-                Icon(Icons.Default.AddCircleOutline, contentDescription = null, modifier = Modifier.size(14.dp))
-                Spacer(Modifier.width(4.dp))
-                Text("Añadir detalle/sublínea", fontSize = 11.sp)
-            }
         } // end Column
     } // end Card
 }
@@ -515,6 +574,13 @@ private fun formatCurrency(amount: Double): String {
 private fun Double.toDisplayString(): String {
     return if (this % 1.0 == 0.0) this.toLong().toString() else this.toString()
 }
+
+data class LineUIState(
+    val key: Long,
+    val line: QuoteLine,
+    val quantityText: String,
+    val unitPriceText: String
+)
 
 @Composable
 fun CompactTextField(
