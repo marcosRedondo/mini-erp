@@ -5,6 +5,21 @@ Todas las versiones notables de este proyecto se documentarán en este archivo.
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 y este proyecto se adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.4] - 2026-03-29
+
+### Añadido
+- Módulo de **Facturación** completo: creación, edición y eliminación de facturas.
+- Generación de **PDF para presupuestos y facturas** con diseño profesional (OpenPDF).
+- Soporte para **sublíneas y detalles** en cada concepto de los documentos.
+- Funcionalidad de **conversión automática**: crear factura desde un presupuesto con un solo clic.
+- Enlaces cruzados entre documentos relacionados (navega de factura a presupuesto y viceversa).
+- Botón de **acceso rápido al Dashboard** (Home) en todas las pantallas de edición.
+
+### Cambiado
+- Rediseño de la cabecera del PDF: ahora incluye **logotipo de empresa**, datos fiscales y fechas de vencimiento destacadas.
+- Reordenación de botones de acción en la interfaz para un flujo de trabajo más intuitivo.
+- Gestión persistente de la numeración de facturas y presupuestos por cliente y año.
+
 ## [1.0.3] - 2026-03-28
 
 ### Añadido
