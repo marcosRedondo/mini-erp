@@ -18,6 +18,7 @@ import com.mrm.minierp.UpdateManager
 fun DashboardScreen(
     onNavigateToClients: () -> Unit,
     onNavigateToQuotes: () -> Unit,
+    onNavigateToInvoices: () -> Unit,
     onNavigateToSettings: () -> Unit
 ) {
     Scaffold(
@@ -51,7 +52,7 @@ fun DashboardScreen(
                 ) {
                     item { DashboardButton("Clientes", Icons.Default.Person, true, onNavigateToClients) }
                     item { DashboardButton("Presupuestos", Icons.Default.Description, true, onNavigateToQuotes) }
-                    item { DashboardButton("Facturas", Icons.Default.Receipt, false, {}) }
+                    item { DashboardButton("Facturas", Icons.Default.Receipt, true, onNavigateToInvoices) }
                     item { DashboardButton("Configuración", Icons.Default.Settings, true, onNavigateToSettings) }
                 }
 

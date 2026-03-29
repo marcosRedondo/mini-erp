@@ -7,6 +7,7 @@ import android.os.Build
 object AndroidContextProvider {
     var context: android.content.Context? = null
     var onPickDirectory: ((onDirectoryPicked: (String) -> Unit) -> Unit)? = null
+    var onPickImage: ((onImagePicked: (String?) -> Unit) -> Unit)? = null
 }
 
 class AndroidPlatform : Platform {
@@ -25,3 +26,8 @@ actual fun openUrl(url: String) {
 actual fun pickDirectory(onDirectoryPicked: (String) -> Unit) {
     AndroidContextProvider.onPickDirectory?.invoke(onDirectoryPicked)
 }
+
+actual fun pickImageAsBase64(onImagePicked: (String?) -> Unit) {
+    AndroidContextProvider.onPickImage?.invoke(onImagePicked)
+}
+

@@ -1,0 +1,11 @@
+CREATE TABLE CompanyEntity (
+    id INTEGER PRIMARY KEY DEFAULT 1,
+    name TEXT NOT NULL,
+    logoBase64 TEXT,
+    nif TEXT,
+    phone TEXT,
+    address TEXT
+);
+
+INSERT INTO CompanyEntity (id, name, logoBase64, nif, phone, address)
+VALUES (1, '', NULL, '', '', '');

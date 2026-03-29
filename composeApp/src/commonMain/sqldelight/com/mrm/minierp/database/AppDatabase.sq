@@ -135,3 +135,138 @@ WHERE id = ?;
 
 deleteQuote:
 DELETE FROM QuoteEntity WHERE id = ?;
+
+-- INVOICES ---
+
+CREATE TABLE InvoiceEntity (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    clientId INTEGER NOT NULL,
+    quoteId INTEGER,
+    number TEXT NOT NULL,
+    date TEXT NOT NULL,
+    totalAmount REAL DEFAULT 0.0,
+    notes TEXT,
+    FOREIGN KEY(clientId) REFERENCES ClientEntity(id),
+    FOREIGN KEY(quoteId) REFERENCES QuoteEntity(id) ON DELETE SET NULL
+);
+
+insertInvoice:
+INSERT INTO InvoiceEntity(clientId, quoteId, number, date, totalAmount, notes)
+VALUES (?, ?, ?, ?, ?, ?);
+
+selectLastInsertedInvoiceId:
+SELECT MAX(id) FROM InvoiceEntity;
+
+selectAllInvoices:
+SELECT * FROM InvoiceEntity;
+
+selectInvoicesByClientId:
+SELECT * FROM InvoiceEntity WHERE clientId = ?;
+
+countInvoicesForClientInYear:
+SELECT COUNT(*) FROM InvoiceEntity 
+WHERE clientId = ? AND date LIKE ?;
+
+selectRecentInvoicesWithClient:
+SELECT I.*, C.name AS clientName, C.taxId AS clientTaxId
+FROM InvoiceEntity I
+JOIN ClientEntity C ON I.clientId = C.id
+ORDER BY I.date DESC, I.id DESC
+LIMIT :limit;
+
+selectInvoicesPaged:
+SELECT I.*, C.name AS clientName, C.taxId AS clientTaxId
+FROM InvoiceEntity I
+JOIN ClientEntity C ON I.clientId = C.id
+ORDER BY I.date DESC, I.id DESC
+LIMIT :limit OFFSET :offset;
+
+selectInvoicesFilteredPaged:
+SELECT I.*, C.name AS clientName, C.taxId AS clientTaxId
+FROM InvoiceEntity I
+JOIN ClientEntity C ON I.clientId = C.id
+WHERE I.clientId IN :clientIds
+ORDER BY I.date DESC, I.id DESC
+LIMIT :limit OFFSET :offset;
+
+countInvoices:
+SELECT COUNT(*) FROM InvoiceEntity;
+
+countInvoicesFiltered:
+SELECT COUNT(*) FROM InvoiceEntity WHERE clientId IN :clientIds;
+
+selectInvoicesAdvancedPaged:
+SELECT DISTINCT I.*, C.name AS clientName, C.taxId AS clientTaxId
+FROM InvoiceEntity I
+JOIN ClientEntity C ON I.clientId = C.id
+LEFT JOIN InvoiceLineEntity IL ON IL.invoiceId = I.id
+WHERE (:clientIdsEmpty OR I.clientId IN :clientIds)
+  AND (:numberSearch IS NULL OR I.number LIKE :numberSearch)
+  AND (:contentSearch IS NULL OR (IL.concept LIKE :contentSearch OR IL.sublines LIKE :contentSearch))
+ORDER BY I.date DESC, I.id DESC
+LIMIT :limit OFFSET :offset;
+
+countInvoicesAdvanced:
+SELECT COUNT(DISTINCT I.id)
+FROM InvoiceEntity I
+LEFT JOIN InvoiceLineEntity IL ON IL.invoiceId = I.id
+WHERE (:clientIdsEmpty OR I.clientId IN :clientIds)
+  AND (:numberSearch IS NULL OR I.number LIKE :numberSearch)
+  AND (:contentSearch IS NULL OR (IL.concept LIKE :contentSearch OR IL.sublines LIKE :contentSearch));
+
+CREATE TABLE InvoiceLineEntity (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    invoiceId INTEGER NOT NULL,
+    quantity REAL NOT NULL,
+    concept TEXT NOT NULL,
+    detail TEXT,
+    sublines TEXT,
+    iva INTEGER NOT NULL DEFAULT 21,
+    unitPrice REAL NOT NULL,
+    FOREIGN KEY(invoiceId) REFERENCES InvoiceEntity(id) ON DELETE CASCADE
+);
+
+insertInvoiceLine:
+INSERT INTO InvoiceLineEntity(invoiceId, quantity, concept, detail, sublines, iva, unitPrice)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+selectLinesForInvoice:
+SELECT * FROM InvoiceLineEntity WHERE invoiceId = ?;
+
+deleteLinesForInvoice:
+DELETE FROM InvoiceLineEntity WHERE invoiceId = ?;
+
+updateInvoice:
+UPDATE InvoiceEntity
+SET clientId = ?, quoteId = ?, number = ?, date = ?, totalAmount = ?, notes = ?
+WHERE id = ?;
+
+deleteInvoice:
+DELETE FROM InvoiceEntity WHERE id = ?;
+
+checkQuoteHasInvoice:
+SELECT COUNT(*) FROM InvoiceEntity WHERE quoteId = ?;
+
+selectInvoiceByQuoteId:
+SELECT * FROM InvoiceEntity WHERE quoteId = ?;
+
+-- COMPANY ---
+
+CREATE TABLE CompanyEntity (
+    id INTEGER PRIMARY KEY DEFAULT 1,
+    name TEXT NOT NULL,
+    logoBase64 TEXT,
+    nif TEXT,
+    phone TEXT,
+    address TEXT
+);
+
+getCompany:
+SELECT * FROM CompanyEntity WHERE id = 1;
+
+updateCompany:
+UPDATE CompanyEntity
+SET name = ?, logoBase64 = ?, nif = ?, phone = ?, address = ?
+WHERE id = 1;
+
+
