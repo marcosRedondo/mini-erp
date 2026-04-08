@@ -262,7 +262,7 @@ private class HeaderFooterEvent(
         val clientCell = PdfPCell().apply {
             border = Rectangle.NO_BORDER
             horizontalAlignment = Element.ALIGN_RIGHT
-            addElement(Paragraph("CLIENTE:", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9f)).apply { alignment = Element.ALIGN_RIGHT })
+            addElement(Paragraph("CLIENTE", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9f)).apply { alignment = Element.ALIGN_RIGHT })
             addElement(Paragraph(client.name, FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12f)).apply { alignment = Element.ALIGN_RIGHT })
             if (client.taxId.isNotBlank()) addElement(Paragraph("CIF/NIF: ${client.taxId}", FontFactory.getFont(FontFactory.HELVETICA, 9f)).apply { alignment = Element.ALIGN_RIGHT })
             if (client.phone.isNotBlank()) addElement(Paragraph("Tel: ${client.phone}", FontFactory.getFont(FontFactory.HELVETICA, 9f)).apply { alignment = Element.ALIGN_RIGHT })
