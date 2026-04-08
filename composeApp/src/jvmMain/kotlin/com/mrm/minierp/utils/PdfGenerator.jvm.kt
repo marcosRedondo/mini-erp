@@ -76,7 +76,7 @@ actual class PdfGenerator actual constructor() {
         expirationDate: String?
     ) {
         val tempFile = File.createTempFile("documento_${number}_", ".pdf")
-        val document = Document(PageSize.A4, 36f, 36f, 180f, 36f)
+        val document = Document(PageSize.A4, 36f, 36f, 220f, 36f)
         val writer = PdfWriter.getInstance(document, FileOutputStream(tempFile))
         
         val event = HeaderFooterEvent(company, client, title, number, date, expirationDate)
@@ -254,6 +254,7 @@ private class HeaderFooterEvent(
             addElement(Paragraph(company.name, FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12f)))
             if (company.nif.isNotBlank()) addElement(Paragraph("CIF: ${company.nif}", FontFactory.getFont(FontFactory.HELVETICA, 9f)))
             if (company.phone.isNotBlank()) addElement(Paragraph("Tel: ${company.phone}", FontFactory.getFont(FontFactory.HELVETICA, 9f)))
+            if (company.email.isNotBlank()) addElement(Paragraph("Email: ${company.email}", FontFactory.getFont(FontFactory.HELVETICA, 9f)))
             if (company.address.isNotBlank()) addElement(Paragraph(company.address, FontFactory.getFont(FontFactory.HELVETICA, 9f)))
         }
         headerTable.addCell(companyCell)
@@ -272,7 +273,7 @@ private class HeaderFooterEvent(
         headerTable.addCell(clientCell)
         
         // Escribir cabecera en el documento
-        headerTable.writeSelectedRows(0, -1, document.left(), document.top() + 140f, cb)
+        headerTable.writeSelectedRows(0, -1, document.left(), document.top() + 180f, cb)
         
         // Título y Pagina
         val titleTable = PdfPTable(1).apply {
@@ -303,6 +304,6 @@ private class HeaderFooterEvent(
             addElement(infoPara)
         }
         titleTable.addCell(titleCell)
-        titleTable.writeSelectedRows(0, -1, document.left(), document.top() + 50f, cb)
+        titleTable.writeSelectedRows(0, -1, document.left(), document.top() + 60f, cb)
     }
 }

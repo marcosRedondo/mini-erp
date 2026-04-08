@@ -1,7 +1,9 @@
 package com.mrm.minierp.features.settings
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Folder
@@ -35,6 +37,7 @@ fun SettingsScreen(
     var companyName by remember { mutableStateOf("") }
     var companyNif by remember { mutableStateOf("") }
     var companyPhone by remember { mutableStateOf("") }
+    var companyEmail by remember { mutableStateOf("") }
     var companyAddress by remember { mutableStateOf("") }
     var companyLogoBase64 by remember { mutableStateOf<String?>(null) }
     
@@ -48,6 +51,7 @@ fun SettingsScreen(
             companyName = company.name
             companyNif = company.nif
             companyPhone = company.phone
+            companyEmail = company.email
             companyAddress = company.address
             companyLogoBase64 = company.logoBase64
             
@@ -81,7 +85,8 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp),
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Card(
@@ -172,6 +177,14 @@ fun SettingsScreen(
                         }
                         
                         OutlinedTextField(
+                            value = companyEmail,
+                            onValueChange = { companyEmail = it },
+                            label = { Text("Email de la Empresa") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+                        
+                        OutlinedTextField(
                             value = companyAddress,
                             onValueChange = { companyAddress = it },
                             label = { Text("Dirección") },
@@ -239,6 +252,7 @@ fun SettingsScreen(
                                             name = companyName,
                                             nif = companyNif,
                                             phone = companyPhone,
+                                            email = companyEmail,
                                             address = companyAddress,
                                             logoBase64 = companyLogoBase64
                                         )

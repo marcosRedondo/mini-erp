@@ -1,5 +1,6 @@
 package com.mrm.minierp
 
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowState
@@ -10,7 +11,8 @@ fun main() {
         Window(
             onCloseRequest = ::exitApplication,
             title = "MiniErp",
-            state = WindowState(placement = WindowPlacement.Maximized)
+            state = WindowState(placement = WindowPlacement.Maximized),
+            icon = painterResource("logo.png")
         ) {
             App()
         }

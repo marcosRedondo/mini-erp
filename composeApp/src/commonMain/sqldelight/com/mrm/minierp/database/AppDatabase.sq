@@ -258,6 +258,7 @@ CREATE TABLE CompanyEntity (
     logoBase64 TEXT,
     nif TEXT,
     phone TEXT,
+    email TEXT,
     address TEXT
 );
 
@@ -266,7 +267,7 @@ SELECT * FROM CompanyEntity WHERE id = 1;
 
 updateCompany:
 UPDATE CompanyEntity
-SET name = ?, logoBase64 = ?, nif = ?, phone = ?, address = ?
+SET name = ?, logoBase64 = ?, nif = ?, phone = ?, email = ?, address = ?
 WHERE id = 1;
 
 
