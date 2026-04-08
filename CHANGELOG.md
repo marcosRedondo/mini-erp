@@ -10,6 +10,7 @@ y este proyecto se adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.
 ### Añadido
 - **Identidad Visual**: Integración de nuevo logotipo profesional (folio + montaña + cabra) optimizado para barra de tareas, ventana de escritorio e icono de lanzador en Android.
 - **Correo de Empresa**: Soporte para email corporativo en la configuración y visualización automática en presupuestos y facturas.
+- **Automatización Android**: Implementado flujo de trabajo en GitHub Actions para compilar y subir el APK automáticamente a las Releases.
 
 ### Cambiado
 - **Mejora de Layout en PDF**: Ajuste de márgenes y posiciones para evitar solapamiento de direcciones largas con el número de página.
