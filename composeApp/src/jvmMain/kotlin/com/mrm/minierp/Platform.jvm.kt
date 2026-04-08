@@ -26,3 +26,25 @@ actual fun pickDirectory(onDirectoryPicked: (String) -> Unit) {
         onDirectoryPicked(chooser.selectedFile.absolutePath)
     }
 }
+
+actual fun pickImageAsBase64(onImagePicked: (String?) -> Unit) {
+    val chooser = javax.swing.JFileChooser().apply {
+        fileSelectionMode = javax.swing.JFileChooser.FILES_ONLY
+        dialogTitle = "Seleccionar Logo de la Empresa"
+        fileFilter = javax.swing.filechooser.FileNameExtensionFilter("Imágenes", "jpg", "jpeg", "png", "gif")
+    }
+    val result = chooser.showOpenDialog(null)
+    if (result == javax.swing.JFileChooser.APPROVE_OPTION) {
+        val file = chooser.selectedFile
+        try {
+            val bytes = java.nio.file.Files.readAllBytes(file.toPath())
+            val base64 = java.util.Base64.getEncoder().encodeToString(bytes)
+            onImagePicked(base64)
+        } catch (e: Exception) {
+            onImagePicked(null)
+        }
+    } else {
+        onImagePicked(null)
+    }
+}
+

@@ -17,7 +17,12 @@ import com.mrm.minierp.database.MiniErpDatabase
 import com.mrm.minierp.database.DatabaseDriverFactory
 import com.mrm.minierp.database.ClientRepository
 import com.mrm.minierp.database.QuoteRepository
+import com.mrm.minierp.database.InvoiceRepository
 import com.mrm.minierp.database.SettingsManager
+import com.mrm.minierp.database.CompanyRepository
+import com.mrm.minierp.features.invoices.InvoicesScreen
+import com.mrm.minierp.features.invoices.InvoicesScreen
+import com.mrm.minierp.features.invoices.InvoiceDetailScreen
 
 @Composable
 fun App() {
@@ -39,6 +44,8 @@ fun App() {
         }
         val clientRepository = remember(database) { ClientRepository(database) }
         val quoteRepository = remember(database) { QuoteRepository(database) }
+        val invoiceRepository = remember(database) { InvoiceRepository(database) }
+        val companyRepository = remember(database) { CompanyRepository(database) }
 
         // Comprobar actualización al iniciar
         LaunchedEffect(Unit) {
@@ -49,15 +56,23 @@ fun App() {
         }
 
         val scope = rememberCoroutineScope()
+        val startDest = if (currentStoragePath == null) "settings" else "dashboard"
+
+        val onNavigateToDashboard = { 
+            navController.navigate("dashboard") { 
+                popUpTo("dashboard") { inclusive = true } 
+            } 
+        }
 
         NavHost(
             navController = navController,
-            startDestination = "dashboard"
+            startDestination = startDest
         ) {
             composable("dashboard") {
                 DashboardScreen(
                     onNavigateToClients = { navController.navigate("clients") },
                     onNavigateToQuotes = { navController.navigate("quotes") },
+                    onNavigateToInvoices = { navController.navigate("invoices") },
                     onNavigateToSettings = { navController.navigate("settings") }
                 )
             }
@@ -74,6 +89,7 @@ fun App() {
                 QuoteDetailScreen(
                     clientRepository = clientRepository,
                     quoteRepository = quoteRepository,
+                    companyRepository = companyRepository,
                     onSave = { quote ->
                         scope.launch {
                             quoteRepository.saveQuote(quote)
@@ -81,7 +97,10 @@ fun App() {
                         }
                     },
                     onCancel = { navController.popBackStack() },
-                    onCreateClient = { navController.navigate("clients/new") }
+                    onCreateClient = { navController.navigate("clients/new") },
+                    invoiceRepository = invoiceRepository,
+                    onNavigateToInvoice = { id -> navController.navigate("invoices/$id") },
+                    onNavigateToDashboard = onNavigateToDashboard
                 )
             }
             composable("quotes/{quoteId}") { backStackEntry ->
@@ -90,6 +109,7 @@ fun App() {
                 QuoteDetailScreen(
                     clientRepository = clientRepository,
                     quoteRepository = quoteRepository,
+                    companyRepository = companyRepository,
                     quote = quote,
                     onSave = { updatedQuote ->
                         scope.launch {
@@ -104,16 +124,103 @@ fun App() {
                             navController.popBackStack()
                         }
                     },
-                    onCreateClient = { navController.navigate("clients/new") }
+                    onCreateClient = { navController.navigate("clients/new") },
+                    onGenerateInvoice = { quoteId -> navController.navigate("invoices/new/$quoteId") },
+                    invoiceRepository = invoiceRepository,
+                    onNavigateToInvoice = { id -> navController.navigate("invoices/$id") },
+                    onNavigateToDashboard = onNavigateToDashboard
+                )
+            }
+            composable("invoices") {
+                InvoicesScreen(
+                    invoiceRepository = invoiceRepository,
+                    clientRepository = clientRepository,
+                    onBack = { navController.popBackStack() },
+                    onAddInvoice = { navController.navigate("invoices/new") },
+                    onEditInvoice = { invoiceId -> navController.navigate("invoices/$invoiceId") }
+                )
+            }
+            composable("invoices/new") {
+                InvoiceDetailScreen(
+                    clientRepository = clientRepository,
+                    invoiceRepository = invoiceRepository,
+                    companyRepository = companyRepository,
+                    quoteRepository = quoteRepository,
+                    onSave = { invoice ->
+                        scope.launch {
+                            invoiceRepository.saveInvoice(invoice)
+                            navController.popBackStack()
+                        }
+                    },
+                    onCancel = { navController.popBackStack() },
+                    onCreateClient = { navController.navigate("clients/new") },
+                    onNavigateToQuote = { quoteId -> navController.navigate("quotes/$quoteId") },
+                    onNavigateToDashboard = onNavigateToDashboard
+                )
+            }
+            composable("invoices/new/{fromQuoteId}") { backStackEntry ->
+                val fromQuoteId = backStackEntry.arguments?.getString("fromQuoteId")?.toIntOrNull()
+                InvoiceDetailScreen(
+                    clientRepository = clientRepository,
+                    invoiceRepository = invoiceRepository,
+                    companyRepository = companyRepository,
+                    quoteRepository = quoteRepository,
+                    fromQuoteId = fromQuoteId,
+                    onSave = { invoice ->
+                        scope.launch {
+                            invoiceRepository.saveInvoice(invoice)
+                            navController.popBackStack()
+                        }
+                    },
+                    onCancel = { navController.popBackStack() },
+                    onCreateClient = { navController.navigate("clients/new") },
+                    onNavigateToQuote = { quoteId -> navController.navigate("quotes/$quoteId") },
+                    onNavigateToDashboard = onNavigateToDashboard
+                )
+            }
+            composable("invoices/{invoiceId}") { backStackEntry ->
+                val invoiceId = backStackEntry.arguments?.getString("invoiceId")?.toIntOrNull()
+                val invoice = invoiceId?.let { invoiceRepository.getInvoiceById(it) }
+                InvoiceDetailScreen(
+                    clientRepository = clientRepository,
+                    invoiceRepository = invoiceRepository,
+                    companyRepository = companyRepository,
+                    quoteRepository = quoteRepository,
+                    invoice = invoice,
+                    onSave = { updatedInvoice ->
+                        scope.launch {
+                            invoiceRepository.saveInvoice(updatedInvoice)
+                            navController.popBackStack()
+                        }
+                    },
+                    onCancel = { navController.popBackStack() },
+                    onDelete = { invoiceToDelete ->
+                        scope.launch {
+                            invoiceRepository.deleteInvoice(invoiceToDelete.id)
+                            navController.popBackStack()
+                        }
+                    },
+                    onCreateClient = { navController.navigate("clients/new") },
+                    onNavigateToQuote = { quoteId -> navController.navigate("quotes/$quoteId") },
+                    onNavigateToDashboard = onNavigateToDashboard
                 )
             }
             composable("settings") {
                 SettingsScreen(
+                    companyRepository = companyRepository,
                     onStoragePathChanged = { newPath ->
                         SettingsManager.storagePath = newPath
                         currentStoragePath = newPath
                     },
-                    onBack = { navController.popBackStack() }
+                    onBack = {
+                        if (navController.previousBackStackEntry != null) {
+                            navController.popBackStack()
+                        } else {
+                            navController.navigate("dashboard") {
+                                popUpTo("settings") { inclusive = true }
+                            }
+                        }
+                    }
                 )
             }
             composable("clients") {
@@ -136,7 +243,8 @@ fun App() {
                                 navController.popBackStack() 
                             }
                         },
-                        onCancel = { navController.popBackStack() }
+                        onCancel = { navController.popBackStack() },
+                        onNavigateToDashboard = onNavigateToDashboard
                     )
                 } else {
                     val id = idStr?.toIntOrNull()
@@ -155,7 +263,8 @@ fun App() {
                                     clientRepository.deleteClient(clientToDelete.id)
                                     forceRefresh++
                                     navController.popBackStack()
-                                }
+                                },
+                                onNavigateToDashboard = onNavigateToDashboard
                             )
                         } else {
                             // Si por algún motivo no se encontró el cliente, no hacer un popBackStack

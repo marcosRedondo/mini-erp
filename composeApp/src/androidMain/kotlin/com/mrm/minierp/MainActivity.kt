@@ -12,6 +12,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 
 class MainActivity : ComponentActivity() {
     private var directoryCallback: ((String) -> Unit)? = null
+    private var imageCallback: ((String?) -> Unit)? = null
 
     private val pickDirectoryLauncher = registerForActivityResult(
         ActivityResultContracts.OpenDocumentTree()
@@ -25,6 +26,22 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private val pickImageLauncher = registerForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let {
+            try {
+                contentResolver.openInputStream(it)?.use { inputStream ->
+                    val bytes = inputStream.readBytes()
+                    val base64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+                    imageCallback?.invoke(base64)
+                } ?: imageCallback?.invoke(null)
+            } catch (e: Exception) {
+                imageCallback?.invoke(null)
+            }
+        } ?: imageCallback?.invoke(null)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
@@ -33,6 +50,11 @@ class MainActivity : ComponentActivity() {
             directoryCallback = callback
             pickDirectoryLauncher.launch(null)
         }
+        AndroidContextProvider.onPickImage = { callback ->
+            imageCallback = callback
+            pickImageLauncher.launch("image/*")
+        }
+
 
         setContent {
             App()

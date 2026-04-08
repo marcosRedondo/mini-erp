@@ -57,6 +57,7 @@ kotlin {
             implementation(libs.kotlinx.coroutinesSwing)
             implementation(libs.ktor.client.cio)
             implementation(libs.sqldelight.sqlite.driver)
+            implementation("com.github.librepdf:openpdf:2.0.3")
         }
     }
 }

@@ -206,6 +206,10 @@ class QuoteRepository(private val database: MiniErpDatabase) {
         val yearStr = "$year%"
         val count = queries.countQuotesForClientInYear(clientId.toLong(), yearStr).executeAsOne()
         val nextNum = (count + 1).toString().padStart(4, '0')
-        return "$year-$nextNum"
+        return "P$year-$nextNum"
+    }
+
+    fun hasInvoice(quoteId: Int): Boolean {
+        return queries.checkQuoteHasInvoice(quoteId.toLong()).executeAsOne() > 0L
     }
 }

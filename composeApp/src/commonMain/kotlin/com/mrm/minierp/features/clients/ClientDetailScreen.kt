@@ -22,7 +22,8 @@ fun ClientDetailScreen(
     client: Client? = null,
     onSave: (Client) -> Unit,
     onCancel: () -> Unit,
-    onDelete: (Client) -> Unit = {}
+    onDelete: (Client) -> Unit = {},
+    onNavigateToDashboard: () -> Unit = {}
 ) {
     var name by remember { mutableStateOf(client?.name ?: "") }
     var taxId by remember { mutableStateOf(client?.taxId ?: "") }
@@ -46,6 +47,9 @@ fun ClientDetailScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onNavigateToDashboard) {
+                        Icon(Icons.Default.Home, contentDescription = "Ir al Dashboard", tint = MaterialTheme.colorScheme.onPrimary)
+                    }
                     if (client != null) {
                         IconButton(onClick = { showDeleteDialog = true }) {
                             Icon(Icons.Default.Delete, contentDescription = "Borrar Cliente", tint = MaterialTheme.colorScheme.onPrimary)
