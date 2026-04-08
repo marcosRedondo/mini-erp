@@ -5,6 +5,16 @@ Todas las versiones notables de este proyecto se documentarán en este archivo.
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 y este proyecto se adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.5] - 2026-04-08
+
+### Añadido
+- **Identidad Visual**: Integración de nuevo logotipo profesional (folio + montaña + cabra) optimizado para barra de tareas, ventana de escritorio e icono de lanzador en Android.
+- **Correo de Empresa**: Soporte para email corporativo en la configuración y visualización automática en presupuestos y facturas.
+
+### Cambiado
+- **Mejora de Layout en PDF**: Ajuste de márgenes y posiciones para evitar solapamiento de direcciones largas con el número de página.
+- **Scroll en Configuración**: Habilitado desplazamiento vertical en la pantalla de ajustes para asegurar el acceso a todos los campos en pantallas pequeñas.
+
 ## [1.0.4] - 2026-03-29
 
 ### Añadido
