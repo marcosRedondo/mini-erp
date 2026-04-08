@@ -5,5 +5,6 @@ data class Company(
     val logoBase64: String? = null,
     val nif: String = "",
     val phone: String = "",
+    val email: String = "",
     val address: String = ""
 )

@@ -12,6 +12,7 @@ class CompanyRepository(private val database: MiniErpDatabase) {
             logoBase64 = row.logoBase64,
             nif = row.nif ?: "",
             phone = row.phone ?: "",
+            email = row.email ?: "",
             address = row.address ?: ""
         )
     }
@@ -22,6 +23,7 @@ class CompanyRepository(private val database: MiniErpDatabase) {
             logoBase64 = company.logoBase64,
             nif = company.nif,
             phone = company.phone,
+            email = company.email,
             address = company.address
         )
     }

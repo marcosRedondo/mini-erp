@@ -110,6 +110,9 @@ compose.desktop {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)
             packageName = "MiniErp"
             packageVersion = libs.versions.app.version.get()
+            windows {
+                iconFile.set(project.file("src/jvmMain/resources/logo.png"))
+            }
         }
     }
 }
