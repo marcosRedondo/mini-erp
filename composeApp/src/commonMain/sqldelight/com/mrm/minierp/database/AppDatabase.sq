@@ -266,8 +266,7 @@ getCompany:
 SELECT * FROM CompanyEntity WHERE id = 1;
 
 updateCompany:
-UPDATE CompanyEntity
-SET name = ?, logoBase64 = ?, nif = ?, phone = ?, email = ?, address = ?
-WHERE id = 1;
+INSERT OR REPLACE INTO CompanyEntity (id, name, logoBase64, nif, phone, email, address)
+VALUES (1, ?, ?, ?, ?, ?, ?);
 
 
