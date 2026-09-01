@@ -19,6 +19,7 @@ fun DashboardScreen(
     onNavigateToClients: () -> Unit,
     onNavigateToQuotes: () -> Unit,
     onNavigateToInvoices: () -> Unit,
+    onNavigateToDeliveryNotes: () -> Unit,
     onNavigateToSettings: () -> Unit
 ) {
     Scaffold(
@@ -53,6 +54,7 @@ fun DashboardScreen(
                     item { DashboardButton("Clientes", Icons.Default.Person, true, onNavigateToClients) }
                     item { DashboardButton("Presupuestos", Icons.Default.Description, true, onNavigateToQuotes) }
                     item { DashboardButton("Facturas", Icons.Default.Receipt, true, onNavigateToInvoices) }
+                    item { DashboardButton("Albaranes", Icons.Default.LocalShipping, true, onNavigateToDeliveryNotes) }
                     item { DashboardButton("Configuración", Icons.Default.Settings, true, onNavigateToSettings) }
                 }
 

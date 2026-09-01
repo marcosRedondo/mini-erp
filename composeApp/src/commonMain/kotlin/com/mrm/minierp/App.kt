@@ -18,11 +18,13 @@ import com.mrm.minierp.database.DatabaseDriverFactory
 import com.mrm.minierp.database.ClientRepository
 import com.mrm.minierp.database.QuoteRepository
 import com.mrm.minierp.database.InvoiceRepository
+import com.mrm.minierp.database.DeliveryNoteRepository
 import com.mrm.minierp.database.SettingsManager
 import com.mrm.minierp.database.CompanyRepository
 import com.mrm.minierp.features.invoices.InvoicesScreen
-import com.mrm.minierp.features.invoices.InvoicesScreen
 import com.mrm.minierp.features.invoices.InvoiceDetailScreen
+import com.mrm.minierp.features.deliverynotes.DeliveryNotesScreen
+import com.mrm.minierp.features.deliverynotes.DeliveryNoteDetailScreen
 
 @Composable
 fun App() {
@@ -45,6 +47,7 @@ fun App() {
         val clientRepository = remember(database) { ClientRepository(database) }
         val quoteRepository = remember(database) { QuoteRepository(database) }
         val invoiceRepository = remember(database) { InvoiceRepository(database) }
+        val deliveryNoteRepository = remember(database) { DeliveryNoteRepository(database) }
         val companyRepository = remember(database) { CompanyRepository(database) }
 
         // Comprobar actualización al iniciar
@@ -73,7 +76,88 @@ fun App() {
                     onNavigateToClients = { navController.navigate("clients") },
                     onNavigateToQuotes = { navController.navigate("quotes") },
                     onNavigateToInvoices = { navController.navigate("invoices") },
+                    onNavigateToDeliveryNotes = { navController.navigate("delivery_notes") },
                     onNavigateToSettings = { navController.navigate("settings") }
+                )
+            }
+            composable("delivery_notes") {
+                DeliveryNotesScreen(
+                    deliveryNoteRepository = deliveryNoteRepository,
+                    clientRepository = clientRepository,
+                    onBack = { navController.popBackStack() },
+                    onAddDeliveryNote = { navController.navigate("delivery_notes/new") },
+                    onEditDeliveryNote = { deliveryNoteId -> navController.navigate("delivery_notes/$deliveryNoteId") }
+                )
+            }
+            composable("delivery_notes/new") {
+                DeliveryNoteDetailScreen(
+                    clientRepository = clientRepository,
+                    deliveryNoteRepository = deliveryNoteRepository,
+                    companyRepository = companyRepository,
+                    quoteRepository = quoteRepository,
+                    invoiceRepository = invoiceRepository,
+                    onSave = { deliveryNote ->
+                        scope.launch {
+                            deliveryNoteRepository.saveDeliveryNote(deliveryNote)
+                            navController.popBackStack()
+                        }
+                    },
+                    onCancel = { navController.popBackStack() },
+                    onCreateClient = { navController.navigate("clients/new") },
+                    onNavigateToQuote = { quoteId -> navController.navigate("quotes/$quoteId") },
+                    onNavigateToInvoice = { invoiceId -> navController.navigate("invoices/$invoiceId") },
+                    onNavigateToDashboard = onNavigateToDashboard
+                )
+            }
+            composable("delivery_notes/new/{fromQuoteId}") { backStackEntry ->
+                val fromQuoteId = backStackEntry.arguments?.getString("fromQuoteId")?.toIntOrNull()
+                DeliveryNoteDetailScreen(
+                    clientRepository = clientRepository,
+                    deliveryNoteRepository = deliveryNoteRepository,
+                    companyRepository = companyRepository,
+                    quoteRepository = quoteRepository,
+                    invoiceRepository = invoiceRepository,
+                    fromQuoteId = fromQuoteId,
+                    onSave = { deliveryNote ->
+                        scope.launch {
+                            deliveryNoteRepository.saveDeliveryNote(deliveryNote)
+                            navController.popBackStack()
+                        }
+                    },
+                    onCancel = { navController.popBackStack() },
+                    onCreateClient = { navController.navigate("clients/new") },
+                    onNavigateToQuote = { quoteId -> navController.navigate("quotes/$quoteId") },
+                    onNavigateToInvoice = { invoiceId -> navController.navigate("invoices/$invoiceId") },
+                    onNavigateToDashboard = onNavigateToDashboard
+                )
+            }
+            composable("delivery_notes/{deliveryNoteId}") { backStackEntry ->
+                val deliveryNoteId = backStackEntry.arguments?.getString("deliveryNoteId")?.toIntOrNull()
+                val deliveryNote = deliveryNoteId?.let { deliveryNoteRepository.getDeliveryNoteById(it) }
+                DeliveryNoteDetailScreen(
+                    clientRepository = clientRepository,
+                    deliveryNoteRepository = deliveryNoteRepository,
+                    companyRepository = companyRepository,
+                    quoteRepository = quoteRepository,
+                    invoiceRepository = invoiceRepository,
+                    deliveryNote = deliveryNote,
+                    onSave = { updatedDeliveryNote ->
+                        scope.launch {
+                            deliveryNoteRepository.saveDeliveryNote(updatedDeliveryNote)
+                            navController.popBackStack()
+                        }
+                    },
+                    onCancel = { navController.popBackStack() },
+                    onDelete = { noteToDelete ->
+                        scope.launch {
+                            deliveryNoteRepository.deleteDeliveryNote(noteToDelete.id)
+                            navController.popBackStack()
+                        }
+                    },
+                    onCreateClient = { navController.navigate("clients/new") },
+                    onNavigateToQuote = { quoteId -> navController.navigate("quotes/$quoteId") },
+                    onNavigateToInvoice = { invoiceId -> navController.navigate("invoices/$invoiceId") },
+                    onNavigateToDashboard = onNavigateToDashboard
                 )
             }
             composable("quotes") {
@@ -126,6 +210,7 @@ fun App() {
                     },
                     onCreateClient = { navController.navigate("clients/new") },
                     onGenerateInvoice = { quoteId -> navController.navigate("invoices/new/$quoteId") },
+                    onGenerateDeliveryNote = { quoteId -> navController.navigate("delivery_notes/new/$quoteId") },
                     invoiceRepository = invoiceRepository,
                     onNavigateToInvoice = { id -> navController.navigate("invoices/$id") },
                     onNavigateToDashboard = onNavigateToDashboard

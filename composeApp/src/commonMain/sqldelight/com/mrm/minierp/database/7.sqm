@@ -1,0 +1,24 @@
+CREATE TABLE DeliveryNoteEntity (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    clientId INTEGER NOT NULL,
+    quoteId INTEGER,
+    invoiceId INTEGER,
+    number TEXT NOT NULL,
+    date TEXT NOT NULL,
+    totalAmount REAL DEFAULT 0.0,
+    notes TEXT,
+    FOREIGN KEY(clientId) REFERENCES ClientEntity(id),
+    FOREIGN KEY(quoteId) REFERENCES QuoteEntity(id) ON DELETE SET NULL,
+    FOREIGN KEY(invoiceId) REFERENCES InvoiceEntity(id) ON DELETE SET NULL
+);
+
+CREATE TABLE DeliveryNoteLineEntity (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    deliveryNoteId INTEGER NOT NULL,
+    quantity REAL NOT NULL,
+    concept TEXT NOT NULL,
+    detail TEXT,
+    sublines TEXT,
+    unitPrice REAL NOT NULL,
+    FOREIGN KEY(deliveryNoteId) REFERENCES DeliveryNoteEntity(id) ON DELETE CASCADE
+);
