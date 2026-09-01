@@ -4,6 +4,7 @@ import com.lowagie.text.*
 import com.lowagie.text.pdf.*
 import com.mrm.minierp.models.Client
 import com.mrm.minierp.models.Company
+import com.mrm.minierp.models.DeliveryNote
 import com.mrm.minierp.models.Invoice
 import com.mrm.minierp.models.Quote
 import java.io.File
@@ -62,6 +63,26 @@ actual class PdfGenerator actual constructor() {
     }
 
     @OptIn(ExperimentalEncodingApi::class)
+    actual fun generateDeliveryNotePdf(company: Company, client: Client, deliveryNote: DeliveryNote) {
+        generatePdf(
+            title = "ALBARÁN",
+            number = deliveryNote.number,
+            date = deliveryNote.date.toString(),
+            company = company,
+            client = client,
+            lines = deliveryNote.lines.map { line ->
+                PdfLine(line.concept, line.quantity, line.unitPrice, 0, line.total, line.sublines)
+            },
+            totalAmount = deliveryNote.totalAmount,
+            subtotalAmount = deliveryNote.totalAmount,
+            ivaBreakdown = emptyMap(),
+            notes = deliveryNote.notes,
+            expirationDate = null,
+            showIva = false
+        )
+    }
+
+    @OptIn(ExperimentalEncodingApi::class)
     private fun generatePdf(
         title: String,
         number: String,
@@ -73,7 +94,8 @@ actual class PdfGenerator actual constructor() {
         subtotalAmount: Double,
         ivaBreakdown: Map<Int, Pair<Double, Double>>,
         notes: String,
-        expirationDate: String?
+        expirationDate: String?,
+        showIva: Boolean = true
     ) {
         val tempFile = File.createTempFile("documento_${number}_", ".pdf")
         val document = Document(PageSize.A4, 36f, 36f, 220f, 36f)
@@ -85,14 +107,24 @@ actual class PdfGenerator actual constructor() {
         document.open()
         
         // Tabla de líneas
-        val table = PdfPTable(5).apply {
-            widthPercentage = 100f
-            setWidths(floatArrayOf(45f, 10f, 15f, 10f, 20f))
-            headerRows = 1
+        val table = if (showIva) {
+            PdfPTable(5).apply {
+                widthPercentage = 100f
+                setWidths(floatArrayOf(45f, 10f, 15f, 10f, 20f))
+                headerRows = 1
+            }
+        } else {
+            PdfPTable(4).apply {
+                widthPercentage = 100f
+                setWidths(floatArrayOf(55f, 15f, 15f, 15f))
+                headerRows = 1
+            }
         }
         
         // Cabeceras de tabla
-        listOf("Concepto", "Cant.", "Precio/u", "IVA", "Total").forEach { header ->
+        val headers = if (showIva) listOf("Concepto", "Cant.", "Precio/u", "IVA", "Total")
+                      else listOf("Concepto", "Cant.", "Precio/u", "Total")
+        headers.forEach { header ->
             table.addCell(PdfPCell(Phrase(header, FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10f))).apply {
                 backgroundColor = java.awt.Color.LIGHT_GRAY
                 horizontalAlignment = Element.ALIGN_CENTER
@@ -131,11 +163,13 @@ actual class PdfGenerator actual constructor() {
                 paddingTop = 3f
                 paddingBottom = 3f
             })
-            table.addCell(PdfPCell(Phrase("${line.iva}%", FontFactory.getFont(FontFactory.HELVETICA, 10f))).apply { 
-                horizontalAlignment = Element.ALIGN_CENTER 
-                paddingTop = 3f
-                paddingBottom = 3f
-            })
+            if (showIva) {
+                table.addCell(PdfPCell(Phrase("${line.iva}%", FontFactory.getFont(FontFactory.HELVETICA, 10f))).apply { 
+                    horizontalAlignment = Element.ALIGN_CENTER 
+                    paddingTop = 3f
+                    paddingBottom = 3f
+                })
+            }
             table.addCell(PdfPCell(Phrase(formatCurrency(line.total), FontFactory.getFont(FontFactory.HELVETICA, 10f))).apply { 
                 horizontalAlignment = Element.ALIGN_RIGHT 
                 paddingLeft = 5f
@@ -148,49 +182,146 @@ actual class PdfGenerator actual constructor() {
         document.add(table)
         
         // Totales al final
-        document.add(Paragraph("\n"))
-        val totalsTable = PdfPTable(4).apply {
-            widthPercentage = 100f
-            setSpacingBefore(10f)
-            setWidths(floatArrayOf(40f, 20f, 20f, 20f))
+        val totalsTable = if (showIva) {
+            PdfPTable(4).apply {
+                widthPercentage = 100f
+                setSpacingBefore(8f)
+                setWidths(floatArrayOf(40f, 20f, 20f, 20f))
+            }
+        } else {
+            PdfPTable(3).apply {
+                widthPercentage = 100f
+                setSpacingBefore(8f)
+                setWidths(floatArrayOf(30f, 40f, 30f))
+            }
         }
         
-        // Cabecera de totales
-        listOf("Observaciones", "Base Imponible", "Cuota IVA", "Importe").forEach { header ->
-            totalsTable.addCell(PdfPCell(Phrase(header, FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8f))).apply {
-                backgroundColor = java.awt.Color.LIGHT_GRAY
-                horizontalAlignment = Element.ALIGN_CENTER
+        if (showIva) {
+            // Cabecera de totales
+            listOf("Observaciones", "Base Imponible", "Cuota IVA", "Importe").forEach { header ->
+                totalsTable.addCell(PdfPCell(Phrase(header, FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8f))).apply {
+                    backgroundColor = java.awt.Color.LIGHT_GRAY
+                    horizontalAlignment = Element.ALIGN_CENTER
+                    border = Rectangle.BOX
+                    borderWidth = 0.5f
+                    borderColor = java.awt.Color.GRAY
+                })
+            }
+            
+            // Observaciones (celda combinada)
+            val notesCell = PdfPCell(Phrase(notes, FontFactory.getFont(FontFactory.HELVETICA, 8f))).apply {
+                rowspan = ivaBreakdown.size + 2
+                setPadding(5f)
+                border = Rectangle.BOX
+                borderWidth = 0.5f
+                borderColor = java.awt.Color.GRAY
+            }
+            totalsTable.addCell(notesCell)
+            
+            ivaBreakdown.keys.sorted().forEach { iva ->
+                val amounts = ivaBreakdown[iva]!!
+                totalsTable.addCell(PdfPCell(Phrase(formatCurrency(amounts.first), FontFactory.getFont(FontFactory.HELVETICA, 9f))).apply { 
+                    horizontalAlignment = Element.ALIGN_RIGHT
+                    border = Rectangle.BOX
+                    borderWidth = 0.5f
+                    borderColor = java.awt.Color.GRAY
+                })
+                totalsTable.addCell(PdfPCell(Phrase("$iva%", FontFactory.getFont(FontFactory.HELVETICA, 9f))).apply { 
+                    horizontalAlignment = Element.ALIGN_CENTER
+                    border = Rectangle.BOX
+                    borderWidth = 0.5f
+                    borderColor = java.awt.Color.GRAY
+                })
+                totalsTable.addCell(PdfPCell(Phrase(formatCurrency(amounts.second), FontFactory.getFont(FontFactory.HELVETICA, 9f))).apply { 
+                    horizontalAlignment = Element.ALIGN_RIGHT
+                    border = Rectangle.BOX
+                    borderWidth = 0.5f
+                    borderColor = java.awt.Color.GRAY
+                })
+            }
+            
+            // Fila final de Total
+            totalsTable.addCell(PdfPCell(Phrase("TOTAL EUR:", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12f))).apply { 
+                colspan = 2
+                horizontalAlignment = Element.ALIGN_RIGHT
+                backgroundColor = java.awt.Color.WHITE
+                paddingTop = 5f
+                paddingBottom = 5f
+                border = Rectangle.BOX
+                borderWidth = 0.5f
+                borderColor = java.awt.Color.GRAY
             })
+            totalsTable.addCell(PdfPCell(Phrase(formatCurrency(totalAmount), FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12f, Font.BOLD, java.awt.Color.BLUE))).apply { 
+                horizontalAlignment = Element.ALIGN_RIGHT
+                backgroundColor = java.awt.Color.WHITE
+                paddingTop = 5f
+                paddingBottom = 5f
+                border = Rectangle.BOX
+                borderWidth = 0.5f
+                borderColor = java.awt.Color.GRAY
+            })
+        } else {
+            // Cabeceras para Albarán: Conforme cliente, Descripción, Total
+            listOf("Conforme cliente", "Descripción", "Total").forEach { header ->
+                totalsTable.addCell(PdfPCell(Phrase(header, FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8f))).apply {
+                    backgroundColor = java.awt.Color.LIGHT_GRAY
+                    horizontalAlignment = Element.ALIGN_CENTER
+                    paddingTop = 4f
+                    paddingBottom = 4f
+                    border = Rectangle.BOX
+                    borderWidth = 0.5f
+                    borderColor = java.awt.Color.GRAY
+                })
+            }
+            
+            // Columna 1 (Izquierda): Recuadro de firma / Conforme cliente
+            val signatureCell = PdfPCell().apply {
+                setMinimumHeight(55f)
+                paddingTop = 5f
+                paddingBottom = 5f
+                paddingLeft = 6f
+                paddingRight = 6f
+                border = Rectangle.BOX
+                borderWidth = 0.5f
+                borderColor = java.awt.Color.GRAY
+                val p = Paragraph("Firma:", FontFactory.getFont(FontFactory.HELVETICA, 8f, java.awt.Color.DARK_GRAY))
+                addElement(p)
+            }
+            totalsTable.addCell(signatureCell)
+            
+            // Columna 2 (En medio): Descripción / Observaciones
+            val notesCell = PdfPCell().apply {
+                setMinimumHeight(55f)
+                paddingTop = 5f
+                paddingBottom = 5f
+                paddingLeft = 6f
+                paddingRight = 6f
+                border = Rectangle.BOX
+                borderWidth = 0.5f
+                borderColor = java.awt.Color.GRAY
+                addElement(Phrase(notes, FontFactory.getFont(FontFactory.HELVETICA, 8f)))
+            }
+            totalsTable.addCell(notesCell)
+            
+            // Columna 3 (Derecha): Total
+            val totalCell = PdfPCell().apply {
+                setMinimumHeight(55f)
+                paddingTop = 10f
+                paddingBottom = 5f
+                paddingLeft = 6f
+                paddingRight = 8f
+                border = Rectangle.BOX
+                borderWidth = 0.5f
+                borderColor = java.awt.Color.GRAY
+                val p = Paragraph().apply {
+                    alignment = Element.ALIGN_RIGHT
+                    add(Phrase("TOTAL EUR:\n", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10f)))
+                    add(Phrase(formatCurrency(totalAmount), FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13f, Font.BOLD, java.awt.Color.BLUE)))
+                }
+                addElement(p)
+            }
+            totalsTable.addCell(totalCell)
         }
-        
-        // Observaciones (celda combinada)
-        val notesCell = PdfPCell(Phrase(notes, FontFactory.getFont(FontFactory.HELVETICA, 8f))).apply {
-            rowspan = ivaBreakdown.size + 2
-            setPadding(5f)
-        }
-        totalsTable.addCell(notesCell)
-        
-        ivaBreakdown.keys.sorted().forEach { iva ->
-            val amounts = ivaBreakdown[iva]!!
-            totalsTable.addCell(PdfPCell(Phrase(formatCurrency(amounts.first), FontFactory.getFont(FontFactory.HELVETICA, 9f))).apply { horizontalAlignment = Element.ALIGN_RIGHT })
-            totalsTable.addCell(PdfPCell(Phrase("$iva%", FontFactory.getFont(FontFactory.HELVETICA, 9f))).apply { horizontalAlignment = Element.ALIGN_CENTER })
-            totalsTable.addCell(PdfPCell(Phrase(formatCurrency(amounts.second), FontFactory.getFont(FontFactory.HELVETICA, 9f))).apply { horizontalAlignment = Element.ALIGN_RIGHT })
-        }
-        
-        // Fila final de Total
-        totalsTable.addCell(PdfPCell(Phrase("TOTAL EUR:", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12f))).apply { 
-            colspan = 2
-            horizontalAlignment = Element.ALIGN_RIGHT
-            backgroundColor = java.awt.Color.WHITE
-            paddingTop = 5f
-            paddingBottom = 5f
-        })
-        totalsTable.addCell(PdfPCell(Phrase(formatCurrency(totalAmount), FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12f, Font.BOLD, java.awt.Color.BLUE))).apply { 
-            horizontalAlignment = Element.ALIGN_RIGHT
-            backgroundColor = java.awt.Color.WHITE
-            paddingTop = 5f
-            paddingBottom = 5f
-        })
         
         document.add(totalsTable)
         

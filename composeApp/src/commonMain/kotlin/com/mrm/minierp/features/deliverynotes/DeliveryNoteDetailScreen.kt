@@ -1,4 +1,4 @@
-package com.mrm.minierp.features.quotes
+package com.mrm.minierp.features.deliverynotes
 
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -30,8 +30,9 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalFocusManager
 import com.mrm.minierp.components.ClientSelector
 import com.mrm.minierp.database.ClientRepository
-import com.mrm.minierp.database.QuoteRepository
+import com.mrm.minierp.database.DeliveryNoteRepository
 import com.mrm.minierp.database.CompanyRepository
+import com.mrm.minierp.database.QuoteRepository
 import com.mrm.minierp.database.InvoiceRepository
 import com.mrm.minierp.utils.PdfGenerator
 import com.mrm.minierp.models.*
@@ -41,54 +42,45 @@ import com.mrm.minierp.components.VerticalScrollbar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun QuoteDetailScreen(
+fun DeliveryNoteDetailScreen(
     clientRepository: ClientRepository,
-    quoteRepository: QuoteRepository,
+    deliveryNoteRepository: DeliveryNoteRepository,
     companyRepository: CompanyRepository,
-    quote: Quote? = null,
-    onSave: (Quote) -> Unit,
+    quoteRepository: QuoteRepository,
+    invoiceRepository: InvoiceRepository,
+    deliveryNote: DeliveryNote? = null,
+    fromQuoteId: Int? = null,
+    fromInvoiceId: Int? = null,
+    onSave: (DeliveryNote) -> Unit,
     onCancel: () -> Unit,
-    onDelete: (Quote) -> Unit = {},
+    onDelete: (DeliveryNote) -> Unit = {},
     onCreateClient: () -> Unit,
-    onGenerateInvoice: (Int) -> Unit = {},
-    onGenerateDeliveryNote: (Int) -> Unit = {},
-    invoiceRepository: InvoiceRepository? = null,
+    onNavigateToQuote: (Int) -> Unit = {},
     onNavigateToInvoice: (Int) -> Unit = {},
     onNavigateToDashboard: () -> Unit = {}
 ) {
     val pdfGenerator = remember { PdfGenerator() }
     var showDeleteDialog by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
-    var clients by remember { mutableStateOf(clientRepository.getAllClients()) }
+    var clients by remember { mutableStateOf<List<Client>>(clientRepository.getAllClients()) }
     var selectedClient by remember { 
-        mutableStateOf(quote?.let { q -> clients.find { it.id == q.clientId } }) 
+        mutableStateOf<Client?>(deliveryNote?.let { d -> clients.find { it.id == d.clientId } }) 
     }
     
     val today = remember { Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date }
-    var quoteDate by remember { mutableStateOf(quote?.date?.toString() ?: today.toString()) }
-    var expirationDate by remember { mutableStateOf(quote?.expirationDate?.toString() ?: today.plus(DatePeriod(months = 1)).toString()) }
-    var notes by remember { mutableStateOf(quote?.notes ?: "") }
-    var quoteNumber by remember { mutableStateOf(quote?.number ?: "") }
+    var deliveryNoteDate by remember { mutableStateOf(deliveryNote?.date?.toString() ?: today.toString()) }
+    var notes by remember { mutableStateOf(deliveryNote?.notes ?: "") }
+    var deliveryNoteNumber by remember { mutableStateOf(deliveryNote?.number ?: "") }
+    var currentQuoteId by remember { mutableStateOf(deliveryNote?.quoteId ?: fromQuoteId) }
+    var currentInvoiceId by remember { mutableStateOf(deliveryNote?.invoiceId ?: fromInvoiceId) }
     
     var nextKey by remember { mutableStateOf(0L) }
     
-    var isLocked by remember { mutableStateOf(false) }
-    var associatedInvoice by remember { mutableStateOf<Invoice?>(null) }
-    
-    LaunchedEffect(quote) {
-        if (quote != null) {
-            isLocked = quoteRepository.hasInvoice(quote.id)
-            if (isLocked && invoiceRepository != null) {
-                associatedInvoice = invoiceRepository.getInvoiceByQuoteId(quote.id)
-            }
-        }
-    }
-    
-    val quoteLines = remember { 
-        mutableStateListOf<LineUIState>().apply {
-            if (quote != null) {
-                addAll(quote.lines.map { 
-                    LineUIState(
+    val deliveryNoteLines = remember { 
+        mutableStateListOf<DeliveryNoteLineUIState>().apply {
+            if (deliveryNote != null) {
+                addAll(deliveryNote.lines.map { 
+                    DeliveryNoteLineUIState(
                         key = nextKey++, 
                         line = it, 
                         quantityText = if (it.quantity == 0.0) "" else it.quantity.toDisplayString(), 
@@ -96,10 +88,9 @@ fun QuoteDetailScreen(
                     ) 
                 })
             } else if (isEmpty()) {
-                // Empezar con una línea vacía si es nuevo
-                add(LineUIState(
+                add(DeliveryNoteLineUIState(
                     key = nextKey++, 
-                    line = QuoteLine(quantity = 1.0, concept = "", unitPrice = 0.0), 
+                    line = DeliveryNoteLine(quantity = 1.0, concept = "", unitPrice = 0.0), 
                     quantityText = "1", 
                     unitPriceText = ""
                 ))
@@ -107,31 +98,89 @@ fun QuoteDetailScreen(
         }
     }
 
-    val totalAmount = quoteLines.sumOf { it.line.totalWithIva }
-    val subtotalAmount = quoteLines.sumOf { it.line.totalWithoutIva }
-    val ivaBreakdown = quoteLines.groupBy { it.line.iva }.mapValues { (_, states) ->
-        val base = states.sumOf { it.line.totalWithoutIva }
-        val quota = states.sumOf { it.line.ivaAmount }
-        Pair(base, quota)
+    val totalAmount = deliveryNoteLines.sumOf { it.line.total }
+    
+    // Cargar datos desde presupuesto si viene de uno
+    LaunchedEffect(fromQuoteId) {
+        if (fromQuoteId != null && deliveryNote == null) {
+            val quote = quoteRepository.getQuoteById(fromQuoteId)
+            if (quote != null) {
+                selectedClient = clients.find { it.id == quote.clientId }
+                notes = quote.notes
+                deliveryNoteLines.clear()
+                quote.lines.forEach { qLine ->
+                    deliveryNoteLines.add(DeliveryNoteLineUIState(
+                        key = nextKey++,
+                        line = DeliveryNoteLine(
+                            quantity = qLine.quantity,
+                            concept = qLine.concept,
+                            detail = qLine.detail,
+                            sublines = qLine.sublines,
+                            unitPrice = qLine.unitPrice
+                        ),
+                        quantityText = qLine.quantity.toDisplayString(),
+                        unitPriceText = qLine.unitPrice.toDisplayString()
+                    ))
+                }
+            }
+        }
+    }
+
+    // Cargar datos desde factura si viene de una
+    LaunchedEffect(fromInvoiceId) {
+        if (fromInvoiceId != null && deliveryNote == null && fromQuoteId == null) {
+            val inv = invoiceRepository.getInvoiceById(fromInvoiceId)
+            if (inv != null) {
+                selectedClient = clients.find { it.id == inv.clientId }
+                notes = inv.notes
+                deliveryNoteLines.clear()
+                inv.lines.forEach { iLine ->
+                    deliveryNoteLines.add(DeliveryNoteLineUIState(
+                        key = nextKey++,
+                        line = DeliveryNoteLine(
+                            quantity = iLine.quantity,
+                            concept = iLine.concept,
+                            detail = iLine.detail,
+                            sublines = iLine.sublines,
+                            unitPrice = iLine.unitPrice
+                        ),
+                        quantityText = iLine.quantity.toDisplayString(),
+                        unitPriceText = iLine.unitPrice.toDisplayString()
+                    ))
+                }
+            }
+        }
     }
     
-    // Observar si se crea un cliente nuevo reactivamente desde el repositorio
-    LaunchedEffect(selectedClient, quoteDate) {
+    LaunchedEffect(selectedClient, deliveryNoteDate) {
         val client = selectedClient
-        if (client != null) {
+        if (client != null && deliveryNote == null) {
             try {
-                val year = quoteDate.toLocalDate().year
-                quoteNumber = quoteRepository.getNextQuoteNumber(client.id, year)
+                val year = deliveryNoteDate.toLocalDate().year
+                deliveryNoteNumber = deliveryNoteRepository.getNextDeliveryNoteNumber(client.id, year)
             } catch (e: Exception) {
-                // Si la fecha no es válida todavía, no actualizamos el número
             }
+        }
+    }
+
+    var associatedQuote by remember { mutableStateOf<Quote?>(null) }
+    LaunchedEffect(currentQuoteId) {
+        if (currentQuoteId != null) {
+            associatedQuote = quoteRepository.getQuoteById(currentQuoteId!!)
+        }
+    }
+
+    var associatedInvoice by remember { mutableStateOf<Invoice?>(null) }
+    LaunchedEffect(currentInvoiceId) {
+        if (currentInvoiceId != null) {
+            associatedInvoice = invoiceRepository.getInvoiceById(currentInvoiceId!!)
         }
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (quote == null) "Nuevo Presupuesto" else "Editar Presupuesto", fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                title = { Text(if (deliveryNote == null) "Nuevo Albarán" else "Editar Albarán", fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 navigationIcon = {
                     IconButton(onClick = onCancel) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Cerrar")
@@ -144,7 +193,7 @@ fun QuoteDetailScreen(
                 ),
                 actions = {
                     val client = selectedClient
-                    val canSave = client != null && quoteNumber.isNotBlank() && quoteLines.isNotEmpty()
+                    val canSave = client != null && deliveryNoteNumber.isNotBlank() && deliveryNoteLines.isNotEmpty()
 
                     IconButton(onClick = onNavigateToDashboard) {
                         Icon(
@@ -154,82 +203,59 @@ fun QuoteDetailScreen(
                         )
                     }
 
-                    // Botón Eliminar (solo al editar y si no está bloqueado)
-                    if (quote != null && !isLocked) {
+                    if (deliveryNote != null) {
                         IconButton(onClick = { showDeleteDialog = true }) {
                             Icon(
                                 Icons.Default.Delete,
-                                contentDescription = "Eliminar presupuesto",
+                                contentDescription = "Eliminar albarán",
                                 tint = MaterialTheme.colorScheme.onPrimary
                             )
                         }
                     }
 
-                    // Botón Imprimir (icono)
                     IconButton(
                         onClick = {
                             val client = selectedClient
-                            if (quote != null && client != null) {
+                            if (deliveryNote != null && client != null) {
                                 val company = companyRepository.getCompany()
-                                pdfGenerator.generateQuotePdf(company, client, quote)
+                                pdfGenerator.generateDeliveryNotePdf(company, client, deliveryNote)
                             }
                         },
-                        enabled = quote != null && selectedClient != null
+                        enabled = deliveryNote != null && selectedClient != null
                     ) {
                         Icon(
                             Icons.Default.Print,
-                            contentDescription = "Imprimir presupuesto",
-                            tint = if (quote != null && selectedClient != null) MaterialTheme.colorScheme.onPrimary
+                            contentDescription = "Imprimir albarán",
+                            tint = if (deliveryNote != null && selectedClient != null) MaterialTheme.colorScheme.onPrimary
                                    else MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.4f)
                         )
                     }
 
-                    // Botón Generar Albarán
-                    val canGenerateDeliveryNote = quote != null
-                    IconButton(onClick = { if (quote != null) onGenerateDeliveryNote(quote.id) }, enabled = canGenerateDeliveryNote) {
-                        Icon(
-                            Icons.Default.LocalShipping,
-                            contentDescription = "Generar albarán",
-                            tint = if (canGenerateDeliveryNote) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.4f)
-                        )
-                    }
-
-                    // Botón Generar Factura (habilitado si es un presupuesto guardado y no tiene factura)
-                    val canGenerateInvoice = quote != null && !isLocked
-                    IconButton(onClick = { if (quote != null) onGenerateInvoice(quote.id) }, enabled = canGenerateInvoice) {
-                        Icon(
-                            Icons.Default.Receipt,
-                            contentDescription = "Generar factura",
-                            tint = if (canGenerateInvoice) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.4f)
-                        )
-                    }
-
-                    // Botón Guardar (icono)
                     IconButton(
                         onClick = {
-                            if (client != null && quoteNumber.isNotBlank() && !isLocked) {
+                            if (client != null && deliveryNoteNumber.isNotBlank()) {
                                 try {
-                                    onSave(Quote(
-                                        id = quote?.id ?: 0,
+                                    onSave(DeliveryNote(
+                                        id = deliveryNote?.id ?: 0,
                                         clientId = client.id,
-                                        number = quoteNumber,
-                                        date = quoteDate.toLocalDate(),
-                                        expirationDate = expirationDate.toLocalDate(),
+                                        quoteId = currentQuoteId,
+                                        invoiceId = currentInvoiceId,
+                                        number = deliveryNoteNumber,
+                                        date = deliveryNoteDate.toLocalDate(),
                                         totalAmount = totalAmount,
                                         notes = notes,
-                                        lines = quoteLines.map { it.line }
+                                        lines = deliveryNoteLines.map { it.line }
                                     ))
                                 } catch (e: Exception) {
-                                    // Manejar error de fecha
                                 }
                             }
                         },
-                        enabled = canSave && !isLocked
+                        enabled = canSave
                     ) {
                         Icon(
                             Icons.Default.Save,
-                            contentDescription = "Guardar presupuesto",
-                            tint = if (canSave && !isLocked) MaterialTheme.colorScheme.onPrimary
+                            contentDescription = "Guardar albarán",
+                            tint = if (canSave) MaterialTheme.colorScheme.onPrimary
                                    else MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.4f)
                         )
                     }
@@ -244,12 +270,12 @@ fun QuoteDetailScreen(
                 .padding(horizontal = 12.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            if (isLocked) {
+            if (currentQuoteId != null) {
                 Surface(
-                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f),
+                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.9f),
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.fillMaxWidth().clickable {
-                        associatedInvoice?.let { onNavigateToInvoice(it.id) }
+                        onNavigateToQuote(currentQuoteId!!)
                     }
                 ) {
                     Row(
@@ -259,48 +285,84 @@ fun QuoteDetailScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "Presupuesto ya facturado y bloqueado.",
-                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                "Albarán asociado a presupuesto.",
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Bold
                             )
-                            associatedInvoice?.let {
+                            associatedQuote?.let {
                                 Text(
-                                    "Factura Nº ${it.number}",
-                                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f),
+                                    "Presupuesto Nº ${it.number}",
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
                                     style = MaterialTheme.typography.bodySmall
                                 )
                             }
                         }
                         Icon(
                             Icons.Default.OpenInNew,
-                            contentDescription = "Ir a factura",
-                            tint = MaterialTheme.colorScheme.onErrorContainer,
+                            contentDescription = "Ver presupuesto",
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
                             modifier = Modifier.size(20.dp)
                         )
                     }
                 }
             }
 
-            // Seccion 1: Cliente
+            if (currentInvoiceId != null) {
+                Surface(
+                    color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.9f),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth().clickable {
+                        onNavigateToInvoice(currentInvoiceId!!)
+                    }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "Albarán asociado a factura.",
+                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            associatedInvoice?.let {
+                                Text(
+                                    "Factura Nº ${it.number}",
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        }
+                        Icon(
+                            Icons.Default.OpenInNew,
+                            contentDescription = "Ver factura",
+                            tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+
             ClientSelector(
                 clients = clients,
                 selectedClient = selectedClient,
                 onClientSelected = { selectedClient = it },
                 onCreateClient = onCreateClient,
-                enabled = quote == null // Bloqueado si estamos editando
+                enabled = deliveryNote == null
             )
 
-            // Seccion 2: Numero y Fecha
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 OutlinedTextField(
-                    value = quoteNumber,
-                    onValueChange = { quoteNumber = it },
+                    value = deliveryNoteNumber,
+                    onValueChange = { deliveryNoteNumber = it },
                     readOnly = false,
-                    label = { Text("Nº Presupuesto", fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    label = { Text("Nº Albarán", fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     modifier = Modifier.weight(1f),
                     leadingIcon = { Icon(Icons.Default.Numbers, contentDescription = null) },
                     colors = OutlinedTextFieldDefaults.colors(
@@ -313,77 +375,62 @@ fun QuoteDetailScreen(
                 )
 
                 OutlinedTextField(
-                    value = quoteDate,
-                    onValueChange = { quoteDate = it },
+                    value = deliveryNoteDate,
+                    onValueChange = { deliveryNoteDate = it },
                     label = { Text("Fecha") },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1.5f),
                     leadingIcon = { Icon(Icons.Default.CalendarToday, contentDescription = null) },
                     placeholder = { Text("YYYY-MM-DD") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                     keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Right) })
                 )
-
-                OutlinedTextField(
-                    value = expirationDate,
-                    onValueChange = { expirationDate = it },
-                    label = { Text("Vencimiento") },
-                    modifier = Modifier.weight(1f),
-                    leadingIcon = { Icon(Icons.Default.CalendarToday, contentDescription = null) },
-                    placeholder = { Text("YYYY-MM-DD") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
-                )
             }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             
-            // Tabla de Líneas
             Column(
                 modifier = Modifier.weight(1f)
             ) {
-                // Encabezado de líneas
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Líneas de presupuesto", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    Text("Líneas de albarán", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                 }
 
-                // Cuerpo de la tabla con scroll mejorado
                 val scrollState = rememberScrollState()
                 Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
                             .verticalScroll(scrollState)
-                            .padding(end = 12.dp) // Espacio para el scrollbar
+                            .padding(end = 12.dp)
                             .padding(bottom = 60.dp)
                     ) {
-                        quoteLines.forEachIndexed { index, state ->
+                        deliveryNoteLines.forEachIndexed { index, state ->
                             key(state.key) {
-                                QuoteLineRow(
+                                DeliveryNoteLineRow(
                                     line = state.line,
                                     quantityText = state.quantityText,
                                     unitPriceText = state.unitPriceText,
                                     onLineChange = { updatedLine, newQuantityText, newUnitPriceText -> 
-                                        quoteLines[index] = LineUIState(state.key, updatedLine, newQuantityText, newUnitPriceText)
+                                        deliveryNoteLines[index] = DeliveryNoteLineUIState(state.key, updatedLine, newQuantityText, newUnitPriceText)
                                     },
                                     onDelete = {
-                                        quoteLines.removeAt(index)
+                                        deliveryNoteLines.removeAt(index)
                                     }
                                 )
                             }
                         }
                         
-                        // Botón añadir línea principal
                         OutlinedButton(
                             onClick = { 
-                                quoteLines.add(
-                                    LineUIState(
+                                deliveryNoteLines.add(
+                                    DeliveryNoteLineUIState(
                                         key = nextKey++, 
-                                        line = QuoteLine(quantity = 1.0, concept = "", unitPrice = 0.0), 
+                                        line = DeliveryNoteLine(quantity = 1.0, concept = "", unitPrice = 0.0), 
                                         quantityText = "1", 
                                         unitPriceText = ""
                                     )
@@ -397,18 +444,16 @@ fun QuoteDetailScreen(
                             Text("Añadir línea principal")
                         }
 
-                        // Observaciones
                         OutlinedTextField(
                             value = notes,
                             onValueChange = { notes = it },
                             label = { Text("Observaciones") },
                             modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp, max = 200.dp).padding(bottom = 16.dp),
-                            placeholder = { Text("Añade cualquier observación o condición especial respecto al presupuesto...") },
+                            placeholder = { Text("Añade cualquier observación o condición de entrega en el albarán...") },
                             maxLines = 10
                         )
                     }
                     
-                    // Añadir el scrollbar visual
                     VerticalScrollbar(
                         scrollState = scrollState,
                         modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight()
@@ -416,49 +461,43 @@ fun QuoteDetailScreen(
                 }
             }
 
-            // Pie de totales
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 tonalElevation = 2.dp,
                 shape = RoundedCornerShape(12.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    // Desglose de IVA
-                    ivaBreakdown.keys.sorted().forEach { type ->
-                        val amounts = ivaBreakdown[type]!!
-                        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-                            Text("IVA $type%", modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                            Text("Base: ${formatCurrency(amounts.first)}", modifier = Modifier.weight(1f), textAlign = TextAlign.End, style = MaterialTheme.typography.bodySmall)
-                            Text("Cuota: ${formatCurrency(amounts.second)}", modifier = Modifier.weight(1f), textAlign = TextAlign.End, style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                    
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                    
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        Text("Total SIN IVA", modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                        Text(formatCurrency(subtotalAmount), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                    }
-                    
-                    Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
-                        Text("TOTAL", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
-                        Text(formatCurrency(totalAmount), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    }
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "TOTAL ALBARÁN",
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        formatCurrency(totalAmount),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
         }
 
-        if (showDeleteDialog && quote != null) {
+        if (showDeleteDialog && deliveryNote != null) {
             AlertDialog(
                 onDismissRequest = { showDeleteDialog = false },
-                title = { Text("Eliminar Presupuesto") },
-                text = { Text("¿Estás seguro de que quieres eliminar el presupuesto ${quote.number}? Esta acción no se puede deshacer.") },
+                title = { Text("Eliminar Albarán") },
+                text = { Text("¿Estás seguro de que quieres eliminar el albarán ${deliveryNote.number}? Esta acción no se puede deshacer.") },
                 confirmButton = {
                     Button(
                         onClick = {
                             showDeleteDialog = false
-                            onDelete(quote)
+                            onDelete(deliveryNote)
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                     ) {
@@ -476,15 +515,13 @@ fun QuoteDetailScreen(
 }
 
 @Composable
-fun QuoteLineRow(
-    line: QuoteLine,
+fun DeliveryNoteLineRow(
+    line: DeliveryNoteLine,
     quantityText: String,
     unitPriceText: String,
-    onLineChange: (QuoteLine, String, String) -> Unit,
+    onLineChange: (DeliveryNoteLine, String, String) -> Unit,
     onDelete: () -> Unit
 ) {
-    var showIvaMenu by remember { mutableStateOf(false) }
-    val ivas = listOf(4, 10, 21)
     val localFocusManager = LocalFocusManager.current
 
     Card(
@@ -499,7 +536,6 @@ fun QuoteLineRow(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Fila 1: Concepto + botón eliminar
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -517,7 +553,6 @@ fun QuoteLineRow(
                 }
             }
 
-            // Sublíneas
             if (line.sublines.isNotEmpty()) {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     line.sublines.forEachIndexed { sIndex, subline ->
@@ -551,7 +586,6 @@ fun QuoteLineRow(
                 }
             }
 
-            // Botón añadir sublínea
             TextButton(
                 onClick = {
                     val newSublines = line.sublines.toMutableList()
@@ -566,13 +600,11 @@ fun QuoteLineRow(
                 Text("Añadir detalle/sublínea", fontSize = 11.sp)
             }
 
-            // Fila 2: Cant | IVA | Precio/u | Subtotal
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Bottom,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Cantidad
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Cant.", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     CompactTextField(
@@ -589,8 +621,7 @@ fun QuoteLineRow(
                     )
                 }
 
-                // Precio unitario
-                Column(modifier = Modifier.weight(1f)) {
+                Column(modifier = Modifier.weight(1.2f)) {
                     Text("Precio/u", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     CompactTextField(
                         value = unitPriceText,
@@ -607,50 +638,22 @@ fun QuoteLineRow(
                     )
                 }
 
-                // IVA
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("IVA", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Box {
-                        CompactTextField(
-                            value = "${line.iva}%",
-                            onValueChange = {},
-                            readOnly = true,
-                            textAlign = TextAlign.Center,
-                            fontSize = 12.sp,
-                            modifier = Modifier.fillMaxWidth().height(36.dp)
-                        )
-                        Box(modifier = Modifier.matchParentSize().clickable { showIvaMenu = true })
-                        DropdownMenu(
-                            expanded = showIvaMenu,
-                            onDismissRequest = { showIvaMenu = false }
-                        ) {
-                            ivas.forEach { iva ->
-                                DropdownMenuItem(
-                                    text = { Text("$iva%") },
-                                    onClick = { onLineChange(line.copy(iva = iva), quantityText, unitPriceText); showIvaMenu = false }
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Subtotal
                 Column(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1.2f),
                     horizontalAlignment = Alignment.End
                 ) {
-                    Text("Subtotal", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Total", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(
-                        text = formatCurrency(line.totalWithoutIva),
-                        fontSize = 12.sp,
+                        text = formatCurrency(line.total),
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
             }
-        } // end Column
-    } // end Card
+        } 
+    } 
 }
 
 private fun formatCurrency(amount: Double): String {
@@ -659,14 +662,13 @@ private fun formatCurrency(amount: Double): String {
     return "$integerPart,${decimalPart.toString().padStart(2, '0')} €"
 }
 
-/** Muestra el Double sin ".0" para números enteros. Ej: 1.0 -> "1", 1.5 -> "1.5" */
 private fun Double.toDisplayString(): String {
     return if (this % 1.0 == 0.0) this.toLong().toString() else this.toString()
 }
 
-data class LineUIState(
+data class DeliveryNoteLineUIState(
     val key: Long,
-    val line: QuoteLine,
+    val line: DeliveryNoteLine,
     val quantityText: String,
     val unitPriceText: String
 )
@@ -711,4 +713,3 @@ fun CompactTextField(
         }
     )
 }
-

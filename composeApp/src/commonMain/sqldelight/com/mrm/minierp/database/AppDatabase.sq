@@ -250,6 +250,121 @@ SELECT COUNT(*) FROM InvoiceEntity WHERE quoteId = ?;
 selectInvoiceByQuoteId:
 SELECT * FROM InvoiceEntity WHERE quoteId = ?;
 
+-- DELIVERY NOTES (ALBARANES) ---
+
+CREATE TABLE DeliveryNoteEntity (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    clientId INTEGER NOT NULL,
+    quoteId INTEGER,
+    invoiceId INTEGER,
+    number TEXT NOT NULL,
+    date TEXT NOT NULL,
+    totalAmount REAL DEFAULT 0.0,
+    notes TEXT,
+    FOREIGN KEY(clientId) REFERENCES ClientEntity(id),
+    FOREIGN KEY(quoteId) REFERENCES QuoteEntity(id) ON DELETE SET NULL,
+    FOREIGN KEY(invoiceId) REFERENCES InvoiceEntity(id) ON DELETE SET NULL
+);
+
+insertDeliveryNote:
+INSERT INTO DeliveryNoteEntity(clientId, quoteId, invoiceId, number, date, totalAmount, notes)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+selectLastInsertedDeliveryNoteId:
+SELECT MAX(id) FROM DeliveryNoteEntity;
+
+selectAllDeliveryNotes:
+SELECT * FROM DeliveryNoteEntity;
+
+selectDeliveryNotesByClientId:
+SELECT * FROM DeliveryNoteEntity WHERE clientId = ?;
+
+selectDeliveryNoteById:
+SELECT * FROM DeliveryNoteEntity WHERE id = ?;
+
+countDeliveryNotesForClientInYear:
+SELECT COUNT(*) FROM DeliveryNoteEntity 
+WHERE clientId = ? AND date LIKE ?;
+
+selectRecentDeliveryNotesWithClient:
+SELECT D.*, C.name AS clientName, C.taxId AS clientTaxId
+FROM DeliveryNoteEntity D
+JOIN ClientEntity C ON D.clientId = C.id
+ORDER BY D.date DESC, D.id DESC
+LIMIT :limit;
+
+selectDeliveryNotesPaged:
+SELECT D.*, C.name AS clientName, C.taxId AS clientTaxId
+FROM DeliveryNoteEntity D
+JOIN ClientEntity C ON D.clientId = C.id
+ORDER BY D.date DESC, D.id DESC
+LIMIT :limit OFFSET :offset;
+
+selectDeliveryNotesFilteredPaged:
+SELECT D.*, C.name AS clientName, C.taxId AS clientTaxId
+FROM DeliveryNoteEntity D
+JOIN ClientEntity C ON D.clientId = C.id
+WHERE D.clientId IN :clientIds
+ORDER BY D.date DESC, D.id DESC
+LIMIT :limit OFFSET :offset;
+
+countDeliveryNotes:
+SELECT COUNT(*) FROM DeliveryNoteEntity;
+
+countDeliveryNotesFiltered:
+SELECT COUNT(*) FROM DeliveryNoteEntity WHERE clientId IN :clientIds;
+
+selectDeliveryNotesAdvancedPaged:
+SELECT DISTINCT D.*, C.name AS clientName, C.taxId AS clientTaxId
+FROM DeliveryNoteEntity D
+JOIN ClientEntity C ON D.clientId = C.id
+LEFT JOIN DeliveryNoteLineEntity DL ON DL.deliveryNoteId = D.id
+WHERE (:clientIdsEmpty OR D.clientId IN :clientIds)
+  AND (:numberSearch IS NULL OR D.number LIKE :numberSearch)
+  AND (:contentSearch IS NULL OR (DL.concept LIKE :contentSearch OR DL.sublines LIKE :contentSearch))
+ORDER BY D.date DESC, D.id DESC
+LIMIT :limit OFFSET :offset;
+
+countDeliveryNotesAdvanced:
+SELECT COUNT(DISTINCT D.id)
+FROM DeliveryNoteEntity D
+LEFT JOIN DeliveryNoteLineEntity DL ON DL.deliveryNoteId = D.id
+WHERE (:clientIdsEmpty OR D.clientId IN :clientIds)
+  AND (:numberSearch IS NULL OR D.number LIKE :numberSearch)
+  AND (:contentSearch IS NULL OR (DL.concept LIKE :contentSearch OR DL.sublines LIKE :contentSearch));
+
+CREATE TABLE DeliveryNoteLineEntity (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    deliveryNoteId INTEGER NOT NULL,
+    quantity REAL NOT NULL,
+    concept TEXT NOT NULL,
+    detail TEXT,
+    sublines TEXT,
+    unitPrice REAL NOT NULL,
+    FOREIGN KEY(deliveryNoteId) REFERENCES DeliveryNoteEntity(id) ON DELETE CASCADE
+);
+
+insertDeliveryNoteLine:
+INSERT INTO DeliveryNoteLineEntity(deliveryNoteId, quantity, concept, detail, sublines, unitPrice)
+VALUES (?, ?, ?, ?, ?, ?);
+
+selectLinesForDeliveryNote:
+SELECT * FROM DeliveryNoteLineEntity WHERE deliveryNoteId = ?;
+
+deleteLinesForDeliveryNote:
+DELETE FROM DeliveryNoteLineEntity WHERE deliveryNoteId = ?;
+
+updateDeliveryNote:
+UPDATE DeliveryNoteEntity
+SET clientId = ?, quoteId = ?, invoiceId = ?, number = ?, date = ?, totalAmount = ?, notes = ?
+WHERE id = ?;
+
+deleteDeliveryNote:
+DELETE FROM DeliveryNoteEntity WHERE id = ?;
+
+selectDeliveryNoteByQuoteId:
+SELECT * FROM DeliveryNoteEntity WHERE quoteId = ?;
+
 -- COMPANY ---
 
 CREATE TABLE CompanyEntity (

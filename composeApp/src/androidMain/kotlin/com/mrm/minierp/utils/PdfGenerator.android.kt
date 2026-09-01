@@ -44,6 +44,20 @@ actual class PdfGenerator actual constructor() {
     }
 
     @OptIn(ExperimentalEncodingApi::class)
+    actual fun generateDeliveryNotePdf(company: Company, client: Client, deliveryNote: DeliveryNote) {
+        generateAndroidPdf(
+            title = "ALBARÁN",
+            number = deliveryNote.number,
+            date = deliveryNote.date.toString(),
+            company = company,
+            client = client,
+            lines = deliveryNote.lines.map { PdfLine(it.concept, it.quantity, it.unitPrice, 0, it.total) },
+            totalAmount = deliveryNote.totalAmount,
+            notes = deliveryNote.notes
+        )
+    }
+
+    @OptIn(ExperimentalEncodingApi::class)
     private fun generateAndroidPdf(
         title: String,
         number: String,
@@ -140,11 +154,62 @@ actual class PdfGenerator actual constructor() {
         canvas.drawLine(40f, yPos, 555f, yPos, paint)
         yPos += 20f
         
-        // --- TOTALES ---
-        paint.textAlign = Paint.Align.RIGHT
-        paint.textSize = 14f
-        paint.isFakeBoldText = true
-        canvas.drawText("TOTAL: ${String.format("%.2f", totalAmount)} €", 555f, yPos, paint)
+        // --- TOTALES / PIE DE PÁGINA ---
+        if (title == "ALBARÁN") {
+            val footerTop = yPos + 10f
+            val boxHeight = 60f
+            
+            // Recuadro Conforme cliente (Izquierda)
+            paint.style = Paint.Style.STROKE
+            paint.color = Color.LTGRAY
+            canvas.drawRect(40f, footerTop, 190f, footerTop + boxHeight, paint)
+            paint.style = Paint.Style.FILL
+            paint.color = Color.BLACK
+            paint.textSize = 9f
+            paint.isFakeBoldText = true
+            paint.textAlign = Paint.Align.LEFT
+            canvas.drawText("Conforme cliente", 45f, footerTop + 14f, paint)
+            paint.isFakeBoldText = false
+            paint.textSize = 8f
+            paint.color = Color.GRAY
+            canvas.drawText("Firma:", 45f, footerTop + 30f, paint)
+            
+            // Recuadro Descripción (En medio)
+            paint.style = Paint.Style.STROKE
+            paint.color = Color.LTGRAY
+            canvas.drawRect(200f, footerTop, 380f, footerTop + boxHeight, paint)
+            paint.style = Paint.Style.FILL
+            paint.color = Color.BLACK
+            paint.textSize = 9f
+            paint.isFakeBoldText = true
+            paint.textAlign = Paint.Align.LEFT
+            canvas.drawText("Descripción", 205f, footerTop + 14f, paint)
+            paint.isFakeBoldText = false
+            paint.textSize = 8f
+            if (notes.isNotBlank()) {
+                canvas.drawText(notes.take(40), 205f, footerTop + 30f, paint)
+            }
+            
+            // Recuadro Total (Derecha)
+            paint.style = Paint.Style.STROKE
+            paint.color = Color.LTGRAY
+            canvas.drawRect(390f, footerTop, 555f, footerTop + boxHeight, paint)
+            paint.style = Paint.Style.FILL
+            paint.color = Color.BLACK
+            paint.textSize = 9f
+            paint.isFakeBoldText = true
+            paint.textAlign = Paint.Align.LEFT
+            canvas.drawText("Total", 395f, footerTop + 14f, paint)
+            paint.textAlign = Paint.Align.RIGHT
+            paint.textSize = 12f
+            paint.color = Color.BLUE
+            canvas.drawText("TOTAL: ${String.format("%.2f", totalAmount)} €", 545f, footerTop + 40f, paint)
+        } else {
+            paint.textAlign = Paint.Align.RIGHT
+            paint.textSize = 14f
+            paint.isFakeBoldText = true
+            canvas.drawText("TOTAL: ${String.format("%.2f", totalAmount)} €", 555f, yPos, paint)
+        }
         
         pdfDocument.finishPage(page)
         
