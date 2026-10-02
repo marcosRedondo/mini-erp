@@ -44,7 +44,7 @@ actual class PdfGenerator actual constructor() {
     }
 
     @OptIn(ExperimentalEncodingApi::class)
-    actual fun generateDeliveryNotePdf(company: Company, client: Client, deliveryNote: DeliveryNote) {
+    actual fun generateDeliveryNotePdf(company: Company, client: Client, deliveryNote: DeliveryNote, includeCompanyDetails: Boolean) {
         generateAndroidPdf(
             title = "ALBARÁN",
             number = deliveryNote.number,
@@ -53,7 +53,8 @@ actual class PdfGenerator actual constructor() {
             client = client,
             lines = deliveryNote.lines.map { PdfLine(it.concept, it.quantity, it.unitPrice, 0, it.total) },
             totalAmount = deliveryNote.totalAmount,
-            notes = deliveryNote.notes
+            notes = deliveryNote.notes,
+            includeCompanyDetails = includeCompanyDetails
         )
     }
 
@@ -66,7 +67,8 @@ actual class PdfGenerator actual constructor() {
         client: Client,
         lines: List<PdfLine>,
         totalAmount: Double,
-        notes: String
+        notes: String,
+        includeCompanyDetails: Boolean = true
     ) {
         val context = AndroidContextProvider.context ?: return
         val pdfDocument = PdfDocument()
@@ -80,29 +82,31 @@ actual class PdfGenerator actual constructor() {
         var yPos = 40f
         
         // --- CABECERA (LOGO Y EMPRESA) ---
-        // Logo
-        company.logoBase64?.let { base64 ->
-            try {
-                val bytes = Base64.decode(base64)
-                val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                if (bitmap != null) {
-                    val scaled = scaleBitmap(bitmap, 100, 50)
-                    canvas.drawBitmap(scaled, 40f, yPos, paint)
-                    yPos += 60f
-                }
-            } catch (e: Exception) {}
+        if (includeCompanyDetails) {
+            // Logo
+            company.logoBase64?.let { base64 ->
+                try {
+                    val bytes = Base64.decode(base64)
+                    val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    if (bitmap != null) {
+                        val scaled = scaleBitmap(bitmap, 100, 50)
+                        canvas.drawBitmap(scaled, 40f, yPos, paint)
+                        yPos += 60f
+                    }
+                } catch (e: Exception) {}
+            }
+            
+            // Datos Empresa (Izquierda)
+            paint.textSize = 12f
+            paint.isFakeBoldText = true
+            canvas.drawText(company.name, 40f, yPos, paint)
+            yPos += 15f
+            paint.isFakeBoldText = false
+            paint.textSize = 10f
+            if (company.nif.isNotBlank()) { canvas.drawText("CIF: ${company.nif}", 40f, yPos, paint); yPos += 12f }
+            if (company.phone.isNotBlank()) { canvas.drawText("Tel: ${company.phone}", 40f, yPos, paint); yPos += 12f }
+            if (company.address.isNotBlank()) { canvas.drawText(company.address, 40f, yPos, paint); yPos += 12f }
         }
-        
-        // Datos Empresa (Izquierda)
-        paint.textSize = 12f
-        paint.isFakeBoldText = true
-        canvas.drawText(company.name, 40f, yPos, paint)
-        yPos += 15f
-        paint.isFakeBoldText = false
-        paint.textSize = 10f
-        if (company.nif.isNotBlank()) { canvas.drawText("CIF: ${company.nif}", 40f, yPos, paint); yPos += 12f }
-        if (company.phone.isNotBlank()) { canvas.drawText("Tel: ${company.phone}", 40f, yPos, paint); yPos += 12f }
-        if (company.address.isNotBlank()) { canvas.drawText(company.address, 40f, yPos, paint); yPos += 12f }
         
         // Datos Cliente (Derecha)
         var yClient = 40f
