@@ -177,6 +177,8 @@ fun DeliveryNoteDetailScreen(
         }
     }
 
+    var showPrintMenu by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -213,22 +215,52 @@ fun DeliveryNoteDetailScreen(
                         }
                     }
 
-                    IconButton(
-                        onClick = {
-                            val client = selectedClient
-                            if (deliveryNote != null && client != null) {
-                                val company = companyRepository.getCompany()
-                                pdfGenerator.generateDeliveryNotePdf(company, client, deliveryNote)
-                            }
-                        },
-                        enabled = deliveryNote != null && selectedClient != null
-                    ) {
-                        Icon(
-                            Icons.Default.Print,
-                            contentDescription = "Imprimir albarán",
-                            tint = if (deliveryNote != null && selectedClient != null) MaterialTheme.colorScheme.onPrimary
-                                   else MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.4f)
-                        )
+                    Box {
+                        IconButton(
+                            onClick = { showPrintMenu = true },
+                            enabled = deliveryNote != null && selectedClient != null
+                        ) {
+                            Icon(
+                                Icons.Default.Print,
+                                contentDescription = "Imprimir albarán",
+                                tint = if (deliveryNote != null && selectedClient != null) MaterialTheme.colorScheme.onPrimary
+                                       else MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.4f)
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = showPrintMenu,
+                            onDismissRequest = { showPrintMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Con datos de empresa") },
+                                onClick = {
+                                    showPrintMenu = false
+                                    val client = selectedClient
+                                    if (deliveryNote != null && client != null) {
+                                        val company = companyRepository.getCompany()
+                                        pdfGenerator.generateDeliveryNotePdf(company, client, deliveryNote, includeCompanyDetails = true)
+                                    }
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Business, contentDescription = null)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Sin datos de empresa") },
+                                onClick = {
+                                    showPrintMenu = false
+                                    val client = selectedClient
+                                    if (deliveryNote != null && client != null) {
+                                        val company = companyRepository.getCompany()
+                                        pdfGenerator.generateDeliveryNotePdf(company, client, deliveryNote, includeCompanyDetails = false)
+                                    }
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Person, contentDescription = null)
+                                }
+                            )
+                        }
                     }
 
                     IconButton(

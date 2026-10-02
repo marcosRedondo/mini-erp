@@ -63,7 +63,7 @@ actual class PdfGenerator actual constructor() {
     }
 
     @OptIn(ExperimentalEncodingApi::class)
-    actual fun generateDeliveryNotePdf(company: Company, client: Client, deliveryNote: DeliveryNote) {
+    actual fun generateDeliveryNotePdf(company: Company, client: Client, deliveryNote: DeliveryNote, includeCompanyDetails: Boolean) {
         generatePdf(
             title = "ALBARÁN",
             number = deliveryNote.number,
@@ -78,7 +78,8 @@ actual class PdfGenerator actual constructor() {
             ivaBreakdown = emptyMap(),
             notes = deliveryNote.notes,
             expirationDate = null,
-            showIva = false
+            showIva = false,
+            includeCompanyDetails = includeCompanyDetails
         )
     }
 
@@ -95,13 +96,14 @@ actual class PdfGenerator actual constructor() {
         ivaBreakdown: Map<Int, Pair<Double, Double>>,
         notes: String,
         expirationDate: String?,
-        showIva: Boolean = true
+        showIva: Boolean = true,
+        includeCompanyDetails: Boolean = true
     ) {
         val tempFile = File.createTempFile("documento_${number}_", ".pdf")
         val document = Document(PageSize.A4, 36f, 36f, 220f, 36f)
         val writer = PdfWriter.getInstance(document, FileOutputStream(tempFile))
         
-        val event = HeaderFooterEvent(company, client, title, number, date, expirationDate)
+        val event = HeaderFooterEvent(company, client, title, number, date, expirationDate, includeCompanyDetails)
         writer.pageEvent = event
         
         document.open()
@@ -357,7 +359,8 @@ private class HeaderFooterEvent(
     val docTitle: String,
     val docNumber: String,
     val docDate: String,
-    val expirationDate: String?
+    val expirationDate: String?,
+    val includeCompanyDetails: Boolean = true
 ) : PdfPageEventHelper() {
 
     @OptIn(ExperimentalEncodingApi::class)
@@ -373,20 +376,22 @@ private class HeaderFooterEvent(
         // Columna Izquierda: Empresa
         val companyCell = PdfPCell().apply {
             border = Rectangle.NO_BORDER
-            // Logo
-            company.logoBase64?.let { base64 ->
-                try {
-                    val bytes = Base64.decode(base64)
-                    val img = Image.getInstance(bytes)
-                    img.scaleToFit(100f, 50f)
-                    addElement(img)
-                } catch (e: Exception) {}
+            if (includeCompanyDetails) {
+                // Logo
+                company.logoBase64?.let { base64 ->
+                    try {
+                        val bytes = Base64.decode(base64)
+                        val img = Image.getInstance(bytes)
+                        img.scaleToFit(100f, 50f)
+                        addElement(img)
+                    } catch (e: Exception) {}
+                }
+                addElement(Paragraph(company.name, FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12f)))
+                if (company.nif.isNotBlank()) addElement(Paragraph("CIF: ${company.nif}", FontFactory.getFont(FontFactory.HELVETICA, 9f)))
+                if (company.phone.isNotBlank()) addElement(Paragraph("Tel: ${company.phone}", FontFactory.getFont(FontFactory.HELVETICA, 9f)))
+                if (company.email.isNotBlank()) addElement(Paragraph("Email: ${company.email}", FontFactory.getFont(FontFactory.HELVETICA, 9f)))
+                if (company.address.isNotBlank()) addElement(Paragraph(company.address, FontFactory.getFont(FontFactory.HELVETICA, 9f)))
             }
-            addElement(Paragraph(company.name, FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12f)))
-            if (company.nif.isNotBlank()) addElement(Paragraph("CIF: ${company.nif}", FontFactory.getFont(FontFactory.HELVETICA, 9f)))
-            if (company.phone.isNotBlank()) addElement(Paragraph("Tel: ${company.phone}", FontFactory.getFont(FontFactory.HELVETICA, 9f)))
-            if (company.email.isNotBlank()) addElement(Paragraph("Email: ${company.email}", FontFactory.getFont(FontFactory.HELVETICA, 9f)))
-            if (company.address.isNotBlank()) addElement(Paragraph(company.address, FontFactory.getFont(FontFactory.HELVETICA, 9f)))
         }
         headerTable.addCell(companyCell)
         

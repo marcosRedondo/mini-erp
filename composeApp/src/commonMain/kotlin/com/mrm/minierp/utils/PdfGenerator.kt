@@ -9,5 +9,5 @@ import com.mrm.minierp.models.Quote
 expect class PdfGenerator() {
     fun generateInvoicePdf(company: Company, client: Client, invoice: Invoice)
     fun generateQuotePdf(company: Company, client: Client, quote: Quote)
-    fun generateDeliveryNotePdf(company: Company, client: Client, deliveryNote: DeliveryNote)
+    fun generateDeliveryNotePdf(company: Company, client: Client, deliveryNote: DeliveryNote, includeCompanyDetails: Boolean = true)
 }
